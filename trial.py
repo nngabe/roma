@@ -25,7 +25,7 @@ from lib.graph_utils import subgraph, random_subgraph, louvain_subgraph, add_sel
 
 prng = lambda i=0: jax.random.PRNGKey(i)
 
-search = ['w_pde', 'c', 'lr', 'weight_decay',  'max_norm',  'input_scaler', 'rep_scaler', 'tau_scaler', 'x_dim', 'time_dim', 'enc_width', 'dec_width', 'pde_width']
+PARAMS = ['w_pde', 'c', 'lr', 'weight_decay', 'x_dim', 'enc_width', 'dec_width', 'pde_width']
 
 def _suggest(args, param, trial):
     p = getattr(args,param)
@@ -37,7 +37,7 @@ def _suggest(args, param, trial):
 def objective(args, trial=None):
 
     if trial:
-        for param in search:
+        for param in PARAMS:
             setattr(args, param, _suggest(args, param, trial))
             print(f'{param} = {getattr(args,param)}, ', end='')
         set_dims(args)
