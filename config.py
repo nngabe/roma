@@ -2,12 +2,12 @@ import argparse
 import glob
 
 from nn.utils.train_utils import add_flags_from_config
-
+from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (1e-5, 'learning rate'),
+        'lr': (1e-3, 'learning rate'),
         'dropout': (0., 'dropout probability'),
-        'epochs': (60001, 'number of epochs to train for'),
+        'epochs': (80000, 'number of epochs to train for'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
         'weight_decay': (1e-3, 'l2 regularization strength'),
         'beta': (0.99, 'moving average coefficient for SLAW'),
@@ -33,7 +33,7 @@ config_args = {
         'w_data': (1., 'weight for data loss.'),
         'w_pde': (1e+3, 'weight for pde loss.'),
         'w_gpde': (1e+6, 'weight for gpde loss.'),
-        'w_ent': (1e-1, 'weight for assignment matrix entropy loss.'),
+        'w_ent': (1e+0, 'weight for assignment matrix entropy loss.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
@@ -43,7 +43,7 @@ config_args = {
         'pe_dim': (0, 'dimension of positional encoding'),
         'time_enc': ([0,1,1], 'whether to insert time encoding in encoder, decoder, and pde functions, respectively.'),
         'time_dim': (1, 'dimension of time embedding'), 
-        'x_dim': (1, 'dimension of differentiable coordinates for PDE'),
+        'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
 
         # positional encoding arguments
         'le_size': (0, 'size of laplacian eigenvector positional encoding'),
@@ -60,7 +60,7 @@ config_args = {
         
         # specify models. pde function layers are the same as the decoder layers by default.
         'encoder': ('HGCN', 'which encoder to use'),
-        'decoder': ('MLP', 'which decoder to use'),
+        'decoder': ('DeepOnet', 'which decoder to use'),
         'pde': ('neural_burgers', 'which PDE to use for the PINN loss'),
         'pool': ('HGCN', 'which model to compute coarsening matrices'),
         'func_space': ('PowerSeries', 'function space for DeepOnet.'),
@@ -88,7 +88,7 @@ config_args = {
         'bias': (1, 'whether to use bias in layers or not'),
         'skip': (1, 'whether to use concat skip connections in encoder.'),
         'res': (0, 'whether to use sum skip connections or not.'),
-        'manifold': ('Hyperboloid', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
+        'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
         'c': (1.0, 'hyperbolic radius, set to None for trainable curvature'),
         
         # graph encoder params
@@ -107,8 +107,17 @@ config_args = {
 }
 
 def set_dims(args):
+    # read cached pe if loading from path
+    if args.log_path != None: args.use_cached = True
+
+    # pe dims
+    args.le_size = args.pe_dim
+    args.rw_size = args.pe_dim
+    args.n2v_size = sup_power_of_two(2*args.pe_dim)
+    
+    # layer dims (enc,renorm,pde,dec)
     args.enc_dims[0] = args.f_dim * 2 if args.fe else args.kappa
-    args.enc_dims[0] += args.pe_dim
+    args.enc_dims[0] += args.le_size + args.rw_size + args.n2v_size
     args.enc_dims[-1] = args.enc_width 
     args.dec_dims[-1] = args.x_dim
     args.enc_dims[1:-1] = (args.enc_depth-1) * [args.enc_width]
@@ -127,10 +136,16 @@ def set_dims(args):
         enc_out = args.enc_dims[-1]
         args.dec_dims[0] = enc_out + args.time_enc[1] * args.time_dim 
     
-    args.pde_dims[0] = args.dec_dims[0] 
-    args.pool_dims[0] = enc_out - args.x_dim + args.time_dim 
-    args.embed_dims[0] = enc_out - args.x_dim - args.kappa + args.time_dim 
-    args.embed_dims[-1] = args.embed_dims[0] - args.time_dim
+    if args.pde=='emergent':
+        args.pde_dims[0] = args.dec_dims[0] + 5 * args.x_dim
+    else: 
+        args.pde_dims[0] = args.dec_dims[0] 
+        
+    args.pool_dims[0] = enc_out - args.x_dim 
+    args.embed_dims[0] = enc_out - args.x_dim - args.kappa 
+    args.embed_dims[-1] = args.embed_dims[0] 
+
+
     return args 
 
 parser = argparse.ArgumentParser()

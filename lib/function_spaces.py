@@ -1,4 +1,3 @@
-
 import numpy as np
 from scipy import linalg, interpolate
 from sklearn import gaussian_process as gp

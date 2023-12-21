@@ -51,10 +51,10 @@ def node2vec(data, dim=128):
                          max_iter=150)
         return acc
 
-    for epoch in range(101):
+    for epoch in range(31):
         loss = train()
         #acc = test()
-        if epoch%25==0: print(f'Epoch: {epoch:02d}, Loss: {loss:.4f}') 
+        if epoch%10==0: print(f'  Epoch: {epoch:02d}, Loss: {loss:.4f}') 
 
     @torch.no_grad()
     def plot_points(colors):
@@ -246,29 +246,29 @@ def compute_pos_enc(args, le_size, rw_size, n2v_size, norm, device):
     edge_index = torch.tensor(edge_index, device=device)
     data = Data(edge_index=edge_index, device=device)
 
-    print('calculating laplacian PE...')
+    print(f' Calculating laplacian PE (dim={le_size})...')
     if le_size>0:
         pe_le = AddLaplacianEigenvectorPE(le_size)
         pe_le = pe_le(data).laplacian_eigenvector_pe.to('cpu').detach().numpy()
     elif le_size==0:
-        pe_le = np.zeros((A.shape[0],1))
-    print('Done.')
-    print('calculating random walk PE...')
+        pe_le = np.array([[] for i in range(A.shape[0])])
+    print(' Done.')
+    print(f' Calculating random walk PE (dim={rw_size})...')
     if rw_size>0:
         pe_rw = AddRandomWalkPE(rw_size)
         pe_rw = pe_rw(data).random_walk_pe.to('cpu').detach().numpy()
     elif rw_size==0:
-        pe_rw = np.zeros((A.shape[0],1))
-    print('Done.')
-    print('calculating node2vec PE...')
+        pe_rw = np.array([[] for i in range(A.shape[0])])
+    print(' Done.')
+    print(f' Calculating node2vec PE (dim={n2v_size})...')
     if n2v_size>0:
         pe_n2v = node2vec(data,n2v_size)(torch.arange(data.num_nodes,device=device))    
         pe_n2v = pe_n2v.to('cpu').detach().numpy()
     elif n2v_size==0:
-        pe_n2v = np.zeros((A.shape[0],1))
-    print('Done.')
+        pe_n2v = np.array([[] for i in range(A.shape[0])])
+    print(' Done.')
     pe = [pe_le, pe_rw, pe_n2v]
-    norm = lambda x: ((x+1e-15)-x.min())/(1e-30 + x.max()-x.min())
+    norm = lambda x:  (x-x.min())/(x.max()-x.min())
     pe = [norm(e) for e in pe]
     pe = np.concatenate(pe, axis=-1)
     #pe = np.concatenate([pe_le/pe_le.max(), pe_rw/pe_rw.max(), pe_n2v/pe_n2v.max()], axis=1)
@@ -281,6 +281,9 @@ def compute_pos_enc(args, le_size, rw_size, n2v_size, norm, device):
 def pos_enc(args, le_size=50, rw_size=50, n2v_size=128, norm=False, use_cached=False, device='cuda'):
     """ Read positional encoding from path if it exists else compute from adjacency matrix."""
     pe_path = args.pe_path 
-    if use_cached and  os.path.exists(pe_path): pe = pd.read_csv(pe_path,index_col=0).to_numpy()
+    if use_cached and os.path.exists(pe_path): 
+        print(' reading PE (LapPE, RWPE, node2vec) from file...')
+        pe = pd.read_csv(pe_path,index_col=0).to_numpy()
+        print(' Done.')
     else: pe = compute_pos_enc(args, le_size=le_size, rw_size=rw_size, n2v_size=n2v_size, norm=norm, device=device)
     return pe

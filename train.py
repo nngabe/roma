@@ -27,25 +27,25 @@ prng = lambda i=0: jax.random.PRNGKey(i)
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    args.data_path = glob.glob(f'../data_cosynn/gels*{args.path}*')[0]
-    args.adj_path = glob.glob(f'../data_cosynn/adj*{args.path.split("_")[0]}*')[0]
+    args.data_path = glob.glob(f'../data/x*{args.path}*')[0]
+    args.adj_path = glob.glob(f'../data/adj*{args.path.split("_")[0]}*')[0]
     args.pe_path = pe_path_from(args.adj_path)
 
     print(f'\n w[data,pde,gpde,ent] = {args.w_data:.0e},{args.w_pde:.0e},{args.w_gpde:.0e},{args.w_ent:.0e}')
     print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n\n')
     
-    pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached)
-    pe = pe/pe.max()
-    args.pe_dim = pe.shape[1]
+    #pe = pe/pe.max()
+    #args.pe_dim = pe.shape[1]
     args = set_dims(args)    
-
+    pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached)
+    
     A = pd.read_csv(args.adj_path, index_col=0).to_numpy()
-    adj = jnp.array(jnp.where(A))
+    adj = A if A.shape[0]==2 else jnp.array(jnp.where(A))
     adj = add_self_loops(adj)
-    x = pd.read_csv(args.data_path, index_col=0).dropna().T
-    for i in range(4): x = x.T.diff().rolling(20,center=True, win_type='gaussian').mean(std=40).dropna().cumsum().T 
+    x = pd.read_csv(args.data_path, index_col=0).dropna()
+    #for i in range(4): x = x.T.diff().rolling(20,center=True, win_type='gaussian').mean(std=40).dropna().cumsum().T 
     x = jnp.array(x.to_numpy())
-    x = x/x.max() #(x - x.min())/(x.max() - x.min())
+    x = (x - x.min())/(x.max() - x.min())
     n,T = x.shape
 
     x_test, adj_test, pe_test, idx_test = random_subgraph(x, adj, pe, batch_size=args.batch_size, key=prng(0))
@@ -73,8 +73,6 @@ if __name__ == '__main__':
         for i in model.pool.pools.keys(): 
             print(f'   embed_{i}: {args.pool}{args.embed_dims}')
         print(f' time_enc: linlog[{args.time_dim}]\n')
-
-
     
     log = {}
     log['args'] = vars(copy.copy(args))
@@ -86,8 +84,7 @@ if __name__ == '__main__':
         print(f'x[test]  = {x[idx_test].shape},  adj[test]  = {adj_test.shape}')
     
     schedule = optax.warmup_exponential_decay_schedule(init_value=0., peak_value=args.lr, warmup_steps=args.epochs//100,
-                                                        transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+2)
-    #schedule = optax.warmup_cosine_decay_schedule(init_value=0., peak_value=args.lr, warmup_steps=args.epochs//100,
+                                                        transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+3)
     optim = optax.chain(optax.clip(args.max_norm), optax.adamw(learning_rate=schedule)) 
     opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))
 
@@ -97,7 +94,7 @@ if __name__ == '__main__':
         x = x.at[:, idx + win].get()
         x = jnp.swapaxes(x,0,1)
         pe = jnp.tile(pe, (idx.shape[0],1,1))
-        xb = jnp.concatenate([pe, x], axis=-1)
+        xb = jnp.concatenate([x, pe], axis=-1)
         return xb
    
     stamp = str(int(time.time()))
@@ -108,7 +105,6 @@ if __name__ == '__main__':
     
     n = args.num_col # number of temporal colocation points
     tic = time.time()
-    mode = 1 if args.slaw else 0
     state = {'a': jnp.zeros(4), 'b': jnp.zeros(4)} if args.slaw else None
     key = jax.random.PRNGKey(0)
     model = eqx.tree_inference(model, value=False)
@@ -125,7 +121,7 @@ if __name__ == '__main__':
         yi = x[:,bundles].T
         yi = jnp.swapaxes(yi,0,1)
         xi = _batch(x, pe, idx)
-        (loss, state), grad = loss_scan(model, xi, adj, ti, yi, key=key, mode=mode, state=state)
+        (loss, state), grad = loss_scan(model, xi, adj, ti, yi, key=key, mode='train', state=state)
         grad = jax.tree_map(lambda x: 0. if jnp.isnan(x).any() else x, grad) 
         
         model, opt_state = make_step(grad, model, opt_state, optim)
@@ -144,10 +140,12 @@ if __name__ == '__main__':
             
             terms, _ = loss_terms(model, xi, adj, ti, yi)
             loss = [term.mean() for term in terms]
-            log['loss'][i] = [loss[0].item(), loss[1].item(), loss[2].item(), loss[3].item()]
+            log['loss'][i] = [loss[0].item(), loss[1].item(), loss[2].item(), loss[3].item(), loss[4].item()]
             
             if args.verbose:
-                print(f'{i:04d}/{args.epochs} : loss_data = {loss[0]:.2e}, loss_pde = {loss[1]:.2e}, loss_gpde = {loss[2]:.2e}, loss_ent = {loss[3]:.2e}  lr = {schedule(i).item():.4e} (time: {time.time()-tic:.1f} s)')
+                print(f'{i:04d}/{args.epochs} : l_data = ({loss[0]:.2e}, {loss[1]:.2e}), l_pde = {loss[2]:.2e},' 
+                      f' l_gpde = {loss[3]:.2e},  l_ent = {loss[4]:.2e};' 
+                      f' lr = {schedule(i).item():.2e} (time: {time.time()-tic:.1f} s)')
             tic = time.time()
             
             bsize,gsize,j = 0,0,0

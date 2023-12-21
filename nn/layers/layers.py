@@ -24,38 +24,30 @@ act_dict = {
             'sigmoid': jax.nn.sigmoid,
             }
 
-def get_dim_act(args):
+def get_dim_act(args, module):
     """
     Helper function to get dimension and activation for each module (enc, dec, renorm, pde).
     """
-    if args.enc_init:
-        act = act_dict[args.act] 
+    act = act_dict[args.act] 
+    if module == 'enc':
         args.num_layers = len(args.enc_dims)
         dims = args.enc_dims
-        args.enc_init = 0
         args.skip = 0
-    elif args.dec_init:
-        act = act_dict[args.act] 
+    elif module == 'dec': 
         args.num_layers = len(args.dec_dims)
         dims = args.dec_dims
-        args.dec_init = 0
-    elif args.pde_init:
-        act = act_dict[args.act] 
+    elif module == 'pde': 
         args.num_layers = len(args.pde_dims)
         dims = args.pde_dims
-        args.pde_init -= 1
-    elif args.pool_init:
-        #args.res = 1
-        act = act_dict[args.act] 
+    elif module == 'pool': 
+        args.res = 1
         args.num_layers = len(args.pool_dims)
         dims = args.pool_dims
         args.pool_dims[-1] = max(args.pool_dims[-1]//args.pool_red, 1)
-        args.pool_init -= 1
         args.use_att = args.use_att_pool
-    elif args.embed_init: 
-        act = act_dict[args.act] 
+    elif module == 'embed': 
+        args.res = 1
         dims = args.embed_dims
-        args.embed_init -= 1
     else:
         print('All layers already init-ed! Define additional layers if needed.')
         raise
@@ -176,9 +168,7 @@ class GATConv(eqx.Module):
         alpha = jax.vmap(self.a)(e)
         
         h = dropout(h, key=key)
-         
         h = tree.tree_map(lambda x: jax.segment_sum(x[s] * alpha[s], r, n), h)
-        
         h = self.act(h)
 
         output = h, adj

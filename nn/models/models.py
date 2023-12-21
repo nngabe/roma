@@ -174,9 +174,9 @@ class MLP(eqx.Module):
     norm: List[eqx.nn.LayerNorm]
     encode_graph: bool
 
-    def __init__(self, args):
+    def __init__(self, args, module):
         super(MLP, self).__init__()
-        dims, act, _ = get_dim_act(args)
+        dims, act, _ = get_dim_act(args, module)
         self.drop_fn = eqx.nn.Dropout(args.dropout)
         layers = []
         self.norm = []
@@ -213,10 +213,10 @@ class DeepOnet(eqx.Module):
     trunk_dims: List[int]
     branch_dims: List[int]
 
-    def __init__(self, args, layer=Linear):
+    def __init__(self, args, module): 
         super(DeepOnet, self).__init__()
         self.func_space = getattr(lib.function_spaces, args.func_space)()
-        dims, act, _ = get_dim_act(args)
+        dims, act, _ = get_dim_act(args,module)
         self.drop_fn = eqx.nn.Dropout(args.dropout)
         self.norm = []
         self.x_dim = args.x_dim
@@ -234,12 +234,13 @@ class DeepOnet(eqx.Module):
         # set dimensions of trunk net
         self.trunk_dims = copy.copy(dims)
         self.trunk_dims[0] = self.tx_dim + sum(args.enc_dims) - self.u_dim - self.x_dim
+        self.trunk_dims[0] = dims[0] - self.u_dim 
         self.trunk_dims[-1] *= self.p
 
         branch,trunk = [],[]
         for i in range(len(dims) - 1):
-            trunk.append(Linear(self.trunk_dims[i], self.trunk_dims[i+1], args.dropout, act, keys[i]))
-            branch.append(Linear(self.branch_dims[i], self.branch_dims[i+1], args.dropout, act, keys[i]))
+            trunk.append(Linear(self.trunk_dims[i], self.trunk_dims[i+1], p=0., act=act, key=keys[i]))
+            branch.append(Linear(self.branch_dims[i], self.branch_dims[i+1], p=0., act=act, key=keys[i]))
         
         self.trunk = nn.Sequential(trunk)
         self.branch = nn.Sequential(branch)
@@ -271,10 +272,10 @@ class HGCN(GraphNet):
     
     curvatures: jax.numpy.ndarray 
     
-    def __init__(self, args):
+    def __init__(self, args, module):
         super(HGCN, self).__init__(args)
         self.manifold = getattr(manifolds, args.manifold)()
-        dims, act, self.curvatures = get_dim_act(args)
+        dims, act, self.curvatures = get_dim_act(args,module)
         self.curvatures.append(args.c)
         hgc_layers = []
         lin_layers = []

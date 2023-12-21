@@ -11,7 +11,7 @@ import numpy as onp
 import jax.numpy as jnp
 from argparse import Namespace
 
-from nn.models.renonet import RenONet, _forward
+from nn.models.renonet import RenONet
 
 def trunc_init(weight: jax.Array, key: jax.random.PRNGKey) -> jax.Array:
   out, in_ = weight.shape
