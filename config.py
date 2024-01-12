@@ -17,6 +17,8 @@ config_args = {
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
         'num_col': (10, 'number of colocation points in the time domain'),
         'batch_size': (128, 'number of nodes in test and batch graphs'),
+        'batch_down_sample': (20, 'factor to down sample training set.'),
+        'batch_walk_len': (3, 'length of GraphSAINT sampler random walks.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (4, 'factor of reduction for each pooling step'),

@@ -24,7 +24,7 @@ from nn.models.renonet import RenONet, loss_scan, loss_terms, make_step
 from config import parser, set_dims
 
 from lib import utils
-from lib.graph_utils import subgraph, random_subgraph, louvain_subgraph, add_self_loops, sup_power_of_two, pad_graph
+from lib.graph_utils import subgraph, get_next_batch, add_self_loops, sup_power_of_two
 from lib.positional_encoding import pe_path_from, pos_enc
 
 #jax.config.update("jax_enable_x64", True)
@@ -70,11 +70,11 @@ if __name__ == '__main__':
     #    idx_lcc = lcc.idx.flatten().numpy()
     #    x_train, adj_train, pe_train = subgraph(index=idx_lcc, x=x_train, adj=adj_train, pe=pe_train, pad=False)
     data_load = Data(edge_index=torch.tensor(adj_train.tolist()), idx=torch.arange(x_train.shape[0]).reshape(-1,1))
-    loader = GraphSAINTRandomWalkSampler(data_load, batch_size=data_load.idx.shape[0]//10, walk_length=3)
-    batch = next(iter(loader))
+    loader = GraphSAINTRandomWalkSampler(data_load, batch_size=data_load.idx.shape[0]//args.batch_down_sample, walk_length=args.batch_walk_len)
+    batch, loader = get_next_batch(loader, args)
     idx_batch = batch.idx.flatten().numpy()
     x_batch, adj_batch, pe_batch = subgraph(index=idx_batch, x=x_train, adj=adj_train, pe=pe_train, pad=True)
-
+    sys.exit(0)
 
     args.pool_dims[-1] = 128 #sup_power_of_two(2 * n//args.pool_red)
     if args.log_path:

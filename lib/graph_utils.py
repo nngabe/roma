@@ -9,6 +9,20 @@ import matplotlib.pyplot as plt
 
 prng = lambda: jax.random.PRNGKey(0)
 
+def get_next_batch(loader, args):
+    bsize = 0
+    for i in range(5):
+        batch = next(iter(loader))
+        bsize=batch.num_nodes
+        if bsize < args.batch_size:
+            break
+    if bsize > args.batch_size: 
+        args.batch_down_sample += 1
+        print(f'batch_down_sample = {args.batch_down_sample}')
+        loader = GraphSAINTRandomWalkSampler(data_load, batch_size=data_load.idx.shape[0]//args.batch_down_sample, walk_length=args.batch_walk_len)
+        batch = get_next_batch(loader, args)
+    return batch, loader
+
 def index_to_mask(index, size):
     
     if not isinstance(index, jnp.ndarray): index = jnp.array(index)
