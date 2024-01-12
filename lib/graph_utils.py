@@ -21,6 +21,7 @@ def subgraph(
     index: Union[jnp.ndarray, List[int]],
     x: jnp.ndarray,
     adj: jnp.ndarray,
+    pe: jnp.ndarray,
     relabel_nodes: bool = True,
     pad: bool = True,
     pad_size: List[int] = [None,None]
@@ -28,6 +29,8 @@ def subgraph(
     """ get the subraph indexed by subset. """
     if not isinstance(index, jnp.ndarray): index = jnp.array(index)
 
+    x = x[index]
+    pe = pe[index]
     num_nodes = jnp.unique(jnp.concatenate(adj)).size
     node_mask = index_to_mask(index, size=num_nodes)
     edge_mask = node_mask[adj[0]] & node_mask[adj[1]]
@@ -38,9 +41,10 @@ def subgraph(
         node_idx = node_idx.at[index].set( jnp.arange(index.shape[0]) )
         adj = node_idx[adj]
 
-    x, adj = pad_graph(x[index], adj, x_size=pad_size[0], adj_size=pad_size[1])
+    if pad: 
+        x, adj, pe = pad_graph(x, adj, pe, x_size=pad_size[0], adj_size=pad_size[1])
 
-    return x, adj, index
+    return x, adj, pe 
 
 def sup_power_of_two(x: int) -> int:
     y = 2
@@ -57,17 +61,19 @@ def pad_adj(adj: jnp.ndarray,
 
 def pad_graph(x: jnp.ndarray, 
               adj: jnp.ndarray, 
+              pe: jnp.ndarray,
               x_size: int = None, 
               adj_size: int = None,
-              pad_x : bool = False) -> Tuple[jnp.ndarray, ...]:
+              pad_x : bool = True)-> Tuple[jnp.ndarray, ...]:
     x_size = sup_power_of_two(x.shape[0]) if not x_size else x_size
     adj_size = sup_power_of_two(adj.shape[1]+500) if not adj_size else adj_size
-    x_pad = 1e+1*jnp.ones((x_size-x.shape[0], x.shape[1]))
+    x_pad = 0.*jnp.ones((x_size-x.shape[0], x.shape[1]))
+    pe_pad = 0.*jnp.ones((x_size-x.shape[0], pe.shape[1]))
     adj_pad = -1*jnp.ones((adj.shape[0], adj_size-adj.shape[1]), dtype=jnp.int32)
     if pad_x:
-        return jnp.concatenate([x, x_pad], axis=0), jnp.concatenate([adj, adj_pad],axis=1)
+        return jnp.concatenate([x, x_pad], axis=0), jnp.concatenate([adj, adj_pad],axis=1), jnp.concatenate([pe, pe_pad], axis=0)
     else:
-        return x, jnp.concatenate([adj, adj_pad],axis=1)
+        return x, jnp.concatenate([adj, adj_pad],axis=1), pe
 
 def dense_to_coo(A: jnp.ndarray) -> jnp.ndarray:
     adj = jnp.mask_indices(A.shape[0], lambda x,k: x)
@@ -159,7 +165,7 @@ def add_self_loops(
     idx = jnp.unique(jnp.concatenate(adj))
     self_loops = jnp.array([idx,idx])
     tmp = jnp.concatenate([adj,self_loops], axis=1)
-    _, reidx = jnp.unique(tmp.T, return_index=True, axis=0)
+    _, reidx = jnp.unique(tmp.T, return_index=True) 
     tmp = tmp[:,reidx]
 
     return tmp

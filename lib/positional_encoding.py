@@ -21,14 +21,13 @@ from torch_geometric.nn import Node2Vec
 import warnings
 warnings.filterwarnings('ignore')
 
-def node2vec(data, dim=128):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+def node2vec(data, dim=128, device='cpu'):
     if hasattr(data,'edge_index'): data = data.edge_index
     model = Node2Vec(data, embedding_dim=dim, walk_length=20,
                      context_size=10, walks_per_node=10,
                      num_negative_samples=1, p=1, q=1, sparse=True).to(device)
 
-    loader = model.loader(batch_size=dim, shuffle=True, num_workers=4)
+    loader = model.loader(batch_size=dim, shuffle=True, num_workers=0)
     optimizer = torch.optim.SparseAdam(list(model.parameters()), lr=0.01)
 
     def train():
@@ -51,7 +50,7 @@ def node2vec(data, dim=128):
                          max_iter=150)
         return acc
 
-    for epoch in range(31):
+    for epoch in range(51):
         loss = train()
         #acc = test()
         if epoch%10==0: print(f'  Epoch: {epoch:02d}, Loss: {loss:.4f}') 
@@ -241,9 +240,9 @@ def pe_path_from(adj_path):
 
 def compute_pos_enc(args, le_size, rw_size, n2v_size, norm, device):
     torch.device(device)
-    A = pd.read_csv(args.adj_path, index_col=0)
-    edge_index = np.array(np.where(A))
-    edge_index = torch.tensor(edge_index, device=device)
+    A = pd.read_csv(args.adj_path, index_col=0).to_numpy()
+    adj = A if A.shape[0]==2 else np.where(A)
+    edge_index = torch.tensor(adj, device=device)
     data = Data(edge_index=edge_index, device=device)
 
     print(f' Calculating laplacian PE (dim={le_size})...')
@@ -278,7 +277,7 @@ def compute_pos_enc(args, le_size, rw_size, n2v_size, norm, device):
 
     return pe
 
-def pos_enc(args, le_size=50, rw_size=50, n2v_size=128, norm=False, use_cached=False, device='cuda'):
+def pos_enc(args, le_size=50, rw_size=50, n2v_size=128, norm=False, use_cached=False, device='cpu'):
     """ Read positional encoding from path if it exists else compute from adjacency matrix."""
     pe_path = args.pe_path 
     if use_cached and os.path.exists(pe_path): 

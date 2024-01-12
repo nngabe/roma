@@ -17,6 +17,7 @@ config_args = {
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
         'num_col': (10, 'number of colocation points in the time domain'),
         'batch_size': (128, 'number of nodes in test and batch graphs'),
+        'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (4, 'factor of reduction for each pooling step'),
     },
@@ -40,7 +41,7 @@ config_args = {
         'rep_scaler': (1., 'rescaling of graph features'),
 
         # which layers use time encodings and what dim should encodings be
-        'pe_dim': (0, 'dimension of positional encoding'),
+        'pe_dim': (20, 'dimension of positional encoding'),
         'time_enc': ([0,1,1], 'whether to insert time encoding in encoder, decoder, and pde functions, respectively.'),
         'time_dim': (1, 'dimension of time embedding'), 
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
@@ -100,7 +101,7 @@ config_args = {
         'local_agg': (0, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
-        'path': ('2990_c1', 'snippet from which to infer data path'),
+        'path': ('N893', 'snippet from which to infer data path'),
         'log_path': (None, 'snippet from which to infer log/model path.'),
         'test_prop': (0.1, 'proportion of test nodes for forecasting'),
     }
