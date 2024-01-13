@@ -11,6 +11,8 @@ import pandas as pd
 from typing import Any, Optional, Sequence, Tuple, Union, Dict
 
 import jax
+if jax.devices()[0].platform=='METAL': jax.config.update('jax_platform_name','cpu')
+
 import jax.numpy as jnp
 import equinox as eqx
 import optax
