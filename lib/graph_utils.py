@@ -3,6 +3,7 @@ from typing import Union, List, Tuple
 import jax
 import jax.numpy as jnp
 import numpy as np
+from torch_geometric.loader import GraphSAINTRandomWalkSampler
 import networkx as nx
 from community import community_louvain
 import matplotlib.pyplot as plt

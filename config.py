@@ -53,7 +53,7 @@ config_args = {
         'rw_size': (0, 'size of random walk (diffusion) positional encoding'),
         'n2v_size': (0, 'size of node2vec positional encoding'),
         'pe_norm': (True, 'apply norm (standard scaler) on each pe type'),
-        'use_cached': (False, 'whether to use previously computed embeddings or not'),
+        'use_cached': (True, 'whether to use previously computed embeddings or not'),
 
         # input/output sizes
         'fe': (0, 'encode features or not'),
@@ -64,7 +64,7 @@ config_args = {
         # specify models. pde function layers are the same as the decoder layers by default.
         'encoder': ('HGCN', 'which encoder to use'),
         'decoder': ('DeepOnet', 'which decoder to use'),
-        'pde': ('neural_burgers', 'which PDE to use for the PINN loss'),
+        'pde': ('emergent', 'which PDE to use for the PINN loss'),
         'pool': ('HGCN', 'which model to compute coarsening matrices'),
         'func_space': ('PowerSeries', 'function space for DeepOnet.'),
         'p_basis': (20, 'size of DeepOnet basis'),

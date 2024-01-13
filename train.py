@@ -74,7 +74,6 @@ if __name__ == '__main__':
     batch, loader = get_next_batch(loader, args)
     idx_batch = batch.idx.flatten().numpy()
     x_batch, adj_batch, pe_batch = subgraph(index=idx_batch, x=x_train, adj=adj_train, pe=pe_train, pad=True)
-    sys.exit(0)
 
     args.pool_dims[-1] = 128 #sup_power_of_two(2 * n//args.pool_red)
     if args.log_path:
