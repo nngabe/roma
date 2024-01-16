@@ -70,7 +70,7 @@ config_args = {
         'p_basis': (20, 'size of DeepOnet basis'),
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
-        'enc_width': (32, 'dimensions of encoder layers'),
+        'enc_width': (64, 'dimensions of encoder layers'),
         'dec_width': (512,'dimensions of decoder layers'),
         'pde_width': (512, 'dimensions of each pde layers'),
         'pool_width': (256, 'dimensions of each pde layers'),
@@ -130,7 +130,7 @@ def set_dims(args):
     args.embed_dims[1:-1] = (args.pool_depth-1) * [args.pool_width]
     if args.res:
         enc_out = args.enc_dims[-1]
-        args.kappa = 0
+        #args.kappa = 0
         args.dec_dims[0] = enc_out + args.time_enc[1] * args.time_dim
     elif args.skip: 
         enc_out = sum(args.enc_dims)

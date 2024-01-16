@@ -9,10 +9,12 @@ import lib.function_spaces
 
 import numpy as np
 import jax
+import jax.random as jr
 import jax.numpy as jnp
 import equinox as eqx
 import equinox.nn as nn
 from equinox import Module, static_field
+from jaxtyping import Array, Float, PRNGKeyArray
 
 prng = lambda i:  jax.random.PRNGKey(i)
 
@@ -31,6 +33,7 @@ class GraphNet(eqx.Module):
     res: bool
     manifold: Optional[manifolds.base.Manifold] = None
     pe_dim: int
+    u_dim: int
 
     def __init__(self, args):
         super(GraphNet, self).__init__()
@@ -38,6 +41,7 @@ class GraphNet(eqx.Module):
         self.skip = args.skip
         self.res = args.res
         self.pe_dim = args.pe_dim
+        self.u_dim = args.kappa
 
     def __call__(self, x, adj=None, w=None, key=prng(0)):
         if self.res:
@@ -69,7 +73,7 @@ class GraphNet(eqx.Module):
 
     def _cat(self, x, adj, w, key):
         x = self.exp(x)
-        if self.pe_dim>0: x_i = [x[:,self.pe_dim:], x[:,:self.pe_dim]]
+        if self.pe_dim>0: x_i = [x[:,:self.u_dim], x[:,self.u_dim:]]
         else: x_i = [x]
         for layer in self.layers:
             x,_ = layer(x, adj, w, key)
@@ -79,6 +83,7 @@ class GraphNet(eqx.Module):
     
     def _res(self, x, adj, w, key):
         x = self.exp(x)
+        if self.pe_dim>0: x_i = [x[:,:self.u_dim], x[:,self.u_dim:]]
         for conv,lin in zip(self.layers,self.lin):
             h,_ = conv(x, adj, w, key)
             x = jax.vmap(lin)(self.log(x)) + self.log(h)
@@ -86,117 +91,106 @@ class GraphNet(eqx.Module):
             key = jax.random.split(key)[0]
         return x
 
+class AttentionBlock(eqx.Module):
+    layer_norm1: eqx.nn.LayerNorm
+    layer_norm2: eqx.nn.LayerNorm
+    attention: eqx.nn.MultiheadAttention
+    linear1: eqx.nn.Linear
+    linear2: eqx.nn.Linear
+    dropout1: eqx.nn.Dropout
+    dropout2: eqx.nn.Dropout
 
-class MHA(eqx.Module):
-    blocks: eqx.nn.Sequential
-    encode_graph: bool
+    def __init__(
+        self,
+        input_shape: int,
+        hidden_dim: int,
+        num_heads: int,
+        dropout_rate: float,
+        key: PRNGKeyArray,
+    ):
+        key1, key2, key3 = jr.split(key, 3)
 
-    def __init__(self, args):
-        super(MHA, self).__init__()
-        dims, act, _ = get_dim_act(args)
-        blocks = []
-        key = jax.random.PRNGKey(0)
-        for i in range(len(dims) - 1):
-            in_dim, out_dim = dims[i], dims[i + 1]
-            blocks.append(MultiheadBlock(in_dim, out_dim, p=args.dropout, key=key))
-            key = jax.random.split(key)[0]
-        self.blocks = blocks
-        self.encode_graph = False
-    def __call__(self, x, adj=None, w=None, key=prng(0)):
-        for block in self.blocks:
-            x = block(x, key)
-            key = jax.random.split(key)[0]
-        return x 
-        
+        self.layer_norm1 = eqx.nn.LayerNorm(input_shape)
+        self.layer_norm2 = eqx.nn.LayerNorm(input_shape)
+        self.attention = eqx.nn.MultiheadAttention(num_heads, input_shape, key=key1)
 
-class MultiheadBlock(eqx.Module):
-    multihead: eqx.nn.MultiheadAttention
-    norm: List[eqx.nn.LayerNorm]
-    ffn: List[eqx.nn.Linear]
-    L: jnp.ndarray
-    b: jnp.ndarray    
+        self.linear1 = eqx.nn.Linear(input_shape, hidden_dim, key=key2)
+        self.linear2 = eqx.nn.Linear(hidden_dim, input_shape, key=key3)
+        self.dropout1 = eqx.nn.Dropout(dropout_rate)
+        self.dropout2 = eqx.nn.Dropout(dropout_rate)
+
+    def __call__(self, x, enable_dropout, key): 
+        input_x = jax.vmap(self.layer_norm1)(x)
+        x = x + self.attention(input_x, input_x, input_x)
+
+        input_x = jax.vmap(self.layer_norm2)(x)
+        input_x = jax.vmap(self.linear1)(input_x)
+        input_x = jax.nn.gelu(input_x)
+
+        key1, key2 = jr.split(key, num=2)
+
+        input_x = self.dropout1(input_x, inference=not enable_dropout, key=key1)
+        input_x = jax.vmap(self.linear2)(input_x)
+        input_x = self.dropout2(input_x, inference=not enable_dropout, key=key2)
+
+        x = x + input_x
+
+        return x
+
+class Transformer(eqx.Module):
+    positional_embedding: jnp.ndarray
+    attention_blocks: list[AttentionBlock]
     dropout: eqx.nn.Dropout
-    omega: np.ndarray
+    mlp: eqx.nn.Sequential
+    num_layers: int
 
-    def __init__(self, in_dim, out_dim, hidden_dim=256, n_heads=2, p=0.1, affine=True, key=prng(0)):
-        super(MultiheadBlock, self).__init__()
-        keys = jax.random.split(jax.random.PRNGKey(0), 10)
-        self.dropout = eqx.nn.Dropout(p)
-        embed_dim = 64
-        self.multihead = eqx.nn.MultiheadAttention(
-            n_heads, 
-            embed_dim, 
-            use_query_bias=True, 
-            use_key_bias=True, 
-            use_value_bias=True, 
-            use_output_bias=True, 
-            dropout_p=p, 
-            key=keys[0]
+    def __init__(
+        self,
+        embedding_dim: int,
+        hidden_dim: int,
+        num_heads: int,
+        num_layers: int,
+        dropout_rate: float,
+        patch_size: int,
+        num_patches: int,
+        num_classes: int,
+        key: PRNGKeyArray,
+    ):
+        key1, key2, key3, key4, key5 = jr.split(key, 5)
+
+        self.patch_embedding = PatchEmbedding(channels, embedding_dim, patch_size, key1)
+        self.positional_embedding = jr.normal(key2, (num_patches + 1, embedding_dim))
+        self.cls_token = jr.normal(key3, (1, embedding_dim))
+        self.num_layers = num_layers
+        self.attention_blocks = [
+            AttentionBlock(embedding_dim, hidden_dim, num_heads, dropout_rate, key4)
+            for _ in range(self.num_layers)
+        ]
+
+        self.dropout = eqx.nn.Dropout(dropout_rate)
+        self.mlp = eqx.nn.Sequential(
+            [
+                eqx.nn.LayerNorm(embedding_dim),
+                eqx.nn.Linear(embedding_dim, num_classes, key=key5),
+            ]
         )
-        self.norm = [eqx.nn.LayerNorm(embed_dim, elementwise_affine=affine),
-                     eqx.nn.LayerNorm(embed_dim, elementwise_affine=affine)]
-        self.ffn = [eqx.nn.Linear(embed_dim, hidden_dim, key=keys[1]),
-                    eqx.nn.Linear(hidden_dim, embed_dim, key=keys[2]),
-                    eqx.nn.Linear(embed_dim, out_dim, key=keys[3])]
-        self.L = (1. / in_dim) * jax.random.normal(keys[4], (in_dim,out_dim))
-        self.b = 0. * jax.random.normal(keys[5], (out_dim,))
-        self.omega = (10 ** jnp.linspace(-3.,1.,embed_dim//2))
 
-    def pe(self, x):
-        x = x + jnp.linspace(0, jnp.pi, x.shape[-1])
-        xo = jnp.einsum('i,j -> ij', x, self.omega)
-        return jnp.concatenate([jnp.cos(xo), jnp.sin(xo)],axis=-1)
 
-    def __call__(self, x, key=prng(0)):
-        keys = jax.random.split(key, 10)
-        x = self.pe(x)
-        attn = self.multihead(x,x,x,key=keys[0])
-        x = x + self.dropout(attn, key=keys[1])
-        x = jax.nn.gelu(x)
-        x = self.norm[0](x)
+    def __call__(self, x, enable_dropout, key):
+        x = self.patch_embedding(x)
+        x = jnp.concatenate((self.cls_token, x), axis=0)
+        x += self.positional_embedding[:x.shape[0]]  # Slice to the same length as x, as the positional embedding may be longer.
+        dropout_key, *attention_keys = jr.split(key, num=self.num_layers + 1)
+        x = self.dropout(x, inference=not enable_dropout, key=dropout_key)
+        for block, attention_key in zip(self.attention_blocks, attention_keys):
+            x = block(x, enable_dropout, key=attention_key)
 
-        y = jax.vmap(self.ffn[0])(x)
-        y = jax.nn.gelu(y)
-        y = jax.vmap(self.ffn[1])(y)
-        x = x + self.dropout(y, key=keys[2])
-        x = jax.nn.gelu(x)
-        #x = self.norm[1](x)
-        x = jax.vmap(self.ffn[2])(x) 
-        x = jax.nn.gelu(x)
-        x = jnp.einsum('ij,ij -> j', x, self.L)
-        #x = jnp.einsum('ij,ij,j -> j', x, self.L, self.b)
+        x = x[0]  # Select the CLS token.
+        x = self.mlp(x)
+
         return x
 
 
-class MLP(eqx.Module):
-    layers: eqx.nn.Sequential
-    drop_fn: eqx.nn.Dropout
-    norm: List[eqx.nn.LayerNorm]
-    encode_graph: bool
-
-    def __init__(self, args, module):
-        super(MLP, self).__init__()
-        dims, act, _ = get_dim_act(args, module)
-        self.drop_fn = eqx.nn.Dropout(args.dropout)
-        layers = []
-        self.norm = []
-        key, subkey = jax.random.split(prng(0))
-        for i in range(len(dims) - 1):
-            in_dim, out_dim = dims[i], dims[i + 1]
-            layers.append(Linear(in_dim, out_dim, args.dropout, act, subkey))
-            self.norm.append(eqx.nn.LayerNorm(out_dim))
-            key, subkey = jax.random.split(key)
-        self.layers = nn.Sequential(layers)
-        self.encode_graph = False
-    def __call__(self, x, adj=None, w=None, key=prng(0)):
-        x = self.layers[0](x,key)
-        key = jax.random.split(key)[0]
-        for layer,norm in zip(self.layers[1:-1],self.norm[1:-1]):
-            x = layer(x, key) #+ x
-            x = norm(x)
-            key = jax.random.split(key)[0]
-        x = self.layers[-1](x,key)
-        return x
 
 class DeepOnet(eqx.Module):
     

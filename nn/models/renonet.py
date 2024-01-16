@@ -28,6 +28,7 @@ class RenONet(eqx.Module):
     x_dim: int
     t_dim: int
     pool_dims: List[int]
+    ln_pool: List[eqx.nn.LayerNorm]
     kappa: int
     batch_size: int
     scalers: Dict[str, jnp.ndarray]
@@ -57,6 +58,7 @@ class RenONet(eqx.Module):
         self.x_dim = args.x_dim
         self.t_dim = args.time_dim
         self.pool_dims = [self.pool.pools[i].layers[-1].linear.linear.bias.shape[0] for i in self.pool.pools]
+        self.ln_pool = [eqx.nn.LayerNorm(dim) for dim in self.pool_dims]
         self.scalers = {'t_lin': 10. ** jnp.arange(2, 2*self.t_dim, 1, dtype=jnp.float32),
                         't_log': 10. ** jnp.arange(-2, 2*self.t_dim, 1, dtype=jnp.float32),
                         't_cos': 10. **jnp.arange(-4,2*self.t_dim, 1, dtype=jnp.float32),
@@ -141,7 +143,9 @@ class RenONet(eqx.Module):
             v = jnp.ones((x.shape[0], 1))
             tx = jnp.concatenate([t*v, x], axis=-1)
             z,s = self.embed_pool(x, adj, w, i, key)
-            S[i] = jax.nn.softmax(self.log(s) * 1e+0, axis=0)
+            s = jax.vmap(self.ln_pool[i])(self.log(s))
+            #s = self.log(s)
+            S[i] = jax.nn.softmax(s, axis=0)
             m,n = S[i].shape
             x = jnp.einsum('ij,ik -> jk', S[i], z) * (n/m)
             y = jnp.einsum('ij,ki -> kj', S[i], y) * (n/m)
