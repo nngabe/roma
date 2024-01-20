@@ -51,28 +51,38 @@ class emergent(eqx.Module):
     F: eqx.Module
     F_max: jnp.float32 
     x_dim: int
+    p_dim: int
     lin_red: eqx.nn.Linear
 
     def __init__(self, args, module='pde'):
         super(emergent, self).__init__()
         self.F = getattr(models, args.decoder)(args, module='pde')
         self.F_max = args.F_max
-        self.x_dim = args.x_dim 
+        self.x_dim = args.x_dim
+        self.p_dim = args.p_basis
         self.lin_red = eqx.nn.Linear(self.x_dim,1,key=prng())
-        #self.lin_red = eqx.nn.MLP(self.x_dim, 1, 4 * self.x_dim, 2, key = prng())
 
     def residual(self, tx, z, u, grad, lap_x, key):
         grad_t = grad[:,0]
         grad_x = grad[:,1:].ravel()
-        txzugl = jnp.concatenate([tx, z, u, grad_x, lap_x], axis=-1)
-        F = self.F_max * self.F(txzugl,key)
+        if hasattr(self.F, 'branch'):
+            p_dim, x_dim = self.p_dim, self.x_dim
+            b_dim = p_dim * x_dim
+            branch,z = z[:b_dim], z[b_dim:]
+            txzugl = jnp.concatenate([tx, z, u, grad_x, lap_x], axis=-1)
+            trunk = self.F.trunk(txzugl, key)
+            branch = branch.reshape(p_dim, x_dim)
+            trunk = trunk.reshape(p_dim)
+            F = jnp.einsum('ij,i -> ', branch, trunk) / b_dim
+        else:
+            txzugl = jnp.concatenate([tx, z, u, grad_x, lap_x], axis=-1)
+            F = self.F(txzugl, key)
 
         res = grad_t - F
         return res, res
 
     def reduction(self, u):
         return jnp.sqrt(jnp.square(u).sum())
-        #return jax.nn.sigmoid(self.lin_red(u))
         
 
 class pooling(eqx.Module):

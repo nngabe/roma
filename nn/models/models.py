@@ -16,7 +16,7 @@ import equinox.nn as nn
 from equinox import Module, static_field
 from jaxtyping import Array, Float, PRNGKeyArray
 
-prng = lambda i:  jax.random.PRNGKey(i)
+prng = lambda i=0: jr.PRNGKey(i)
 
 class null(eqx.Module):
     def __init__(self, args):
@@ -119,7 +119,7 @@ class AttentionBlock(eqx.Module):
         self.dropout1 = eqx.nn.Dropout(dropout_rate)
         self.dropout2 = eqx.nn.Dropout(dropout_rate)
 
-    def __call__(self, x, enable_dropout, key): 
+    def __call__(self, x, key): 
         input_x = jax.vmap(self.layer_norm1)(x)
         x = x + self.attention(input_x, input_x, input_x)
 
@@ -129,9 +129,9 @@ class AttentionBlock(eqx.Module):
 
         key1, key2 = jr.split(key, num=2)
 
-        input_x = self.dropout1(input_x, inference=not enable_dropout, key=key1)
+        input_x = self.dropout1(input_x, key=key1)
         input_x = jax.vmap(self.linear2)(input_x)
-        input_x = self.dropout2(input_x, inference=not enable_dropout, key=key2)
+        input_x = self.dropout2(input_x, key=key2)
 
         x = x + input_x
 
@@ -141,55 +141,63 @@ class Transformer(eqx.Module):
     positional_embedding: jnp.ndarray
     attention_blocks: list[AttentionBlock]
     dropout: eqx.nn.Dropout
-    mlp: eqx.nn.Sequential
+    ln1: eqx.nn.LayerNorm
+    lin1: eqx.nn.Linear
+    lin2: eqx.nn.Linear
     num_layers: int
 
-    def __init__(
-        self,
-        embedding_dim: int,
-        hidden_dim: int,
-        num_heads: int,
-        num_layers: int,
-        dropout_rate: float,
-        patch_size: int,
-        num_patches: int,
-        num_classes: int,
-        key: PRNGKeyArray,
-    ):
+    def __init__(self, in_dim, out_dim, args, key):
         key1, key2, key3, key4, key5 = jr.split(key, 5)
+        keys = jr.split(key,10)
+        hidden_dim = args.dec_width
+        num_heads = args.num_heads
+        dropout_rate = args.dropout_branch
+        self.num_layers = args.dec_depth 
 
-        self.patch_embedding = PatchEmbedding(channels, embedding_dim, patch_size, key1)
-        self.positional_embedding = jr.normal(key2, (num_patches + 1, embedding_dim))
-        self.cls_token = jr.normal(key3, (1, embedding_dim))
-        self.num_layers = num_layers
-        self.attention_blocks = [
-            AttentionBlock(embedding_dim, hidden_dim, num_heads, dropout_rate, key4)
-            for _ in range(self.num_layers)
-        ]
+        self.positional_embedding = jr.normal(key2, (args.num_nodes + 1, in_dim))
+        self.attention_blocks = [ AttentionBlock(hidden_dim, hidden_dim, num_heads, dropout_rate, keys[i]) for i in range(self.num_layers)]
 
         self.dropout = eqx.nn.Dropout(dropout_rate)
-        self.mlp = eqx.nn.Sequential(
-            [
-                eqx.nn.LayerNorm(embedding_dim),
-                eqx.nn.Linear(embedding_dim, num_classes, key=key5),
-            ]
-        )
+        self.ln1 = eqx.nn.LayerNorm(hidden_dim)
+        self.lin1 = eqx.nn.Linear(in_dim, hidden_dim, key=key4)
+        self.lin2 = eqx.nn.Linear(hidden_dim, out_dim, key=key5)
 
-
-    def __call__(self, x, enable_dropout, key):
-        x = self.patch_embedding(x)
-        x = jnp.concatenate((self.cls_token, x), axis=0)
+    def __call__(self, x, key):
         x += self.positional_embedding[:x.shape[0]]  # Slice to the same length as x, as the positional embedding may be longer.
         dropout_key, *attention_keys = jr.split(key, num=self.num_layers + 1)
-        x = self.dropout(x, inference=not enable_dropout, key=dropout_key)
+        x = jax.vmap(self.lin1)(x)
+        x = self.dropout(x, key=dropout_key)
         for block, attention_key in zip(self.attention_blocks, attention_keys):
-            x = block(x, enable_dropout, key=attention_key)
+            x = block(x, key=attention_key)
 
-        x = x[0]  # Select the CLS token.
-        x = self.mlp(x)
+        x = jax.vmap(self.ln1)(x)
+        x = jax.vmap(self.lin2)(x)
 
         return x
 
+class MLP(eqx.Module):
+    num_layers: int
+    layers: List[eqx.Module]
+    resnet: bool
+
+    def __init__(self, in_dim, out_dim, args, key, ln=True, resnet=True):
+        keys = jr.split(key, args.dec_depth + 2 )
+        hidden_dim = args.dec_width
+        self.num_layers = args.dec_depth
+        self.resnet = resnet
+        dropout_rate = args.dropout_trunk
+        dims = [in_dim] + self.num_layers * [args.dec_width] + [out_dim]
+        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i]) for i in range(self.num_layers+1)]
+
+    def __call__(self, x, key):
+
+        for layer in self.layers:
+            if len(x.shape)==1:
+                x = layer(x, key)
+            if len(x.shape)==2:
+                x = jax.vmap(lambda x: layer(x,key))(x)
+            key = jr.split(key)[0]
+        return x
 
 
 class DeepOnet(eqx.Module):
@@ -202,8 +210,7 @@ class DeepOnet(eqx.Module):
     x_dim: int
     tx_dim: int
     u_dim: int
-    depth: int
-    p: int
+    p_dim: int
     trunk_dims: List[int]
     branch_dims: List[int]
 
@@ -216,48 +223,38 @@ class DeepOnet(eqx.Module):
         self.x_dim = args.x_dim
         self.tx_dim = args.time_dim + args.x_dim 
         self.u_dim = args.kappa
-        self.p = args.p_basis
-        keys = jax.random.split(prng(0))
+        self.p_dim = args.p_basis
 
+        key1, key2, key3, key4, key5 = jr.split(prng(), 5)
+        
         # set dimensions of branch net        
         self.branch_dims = copy.copy(dims)
         self.branch_dims[0] = self.u_dim
+        self.branch_dims[-1] = self.p_dim
         self.branch_dims[-1] *= args.x_dim
-        self.branch_dims[-1] *= self.p
 
         # set dimensions of trunk net
         self.trunk_dims = copy.copy(dims)
-        self.trunk_dims[0] = self.tx_dim + sum(args.enc_dims) - self.u_dim - self.x_dim
         self.trunk_dims[0] = dims[0] - self.u_dim 
-        self.trunk_dims[-1] *= self.p
+        self.trunk_dims[-1] = self.p_dim
 
-        branch,trunk = [],[]
-        for i in range(len(dims) - 1):
-            trunk.append(Linear(self.trunk_dims[i], self.trunk_dims[i+1], p=0., act=act, key=keys[i]))
-            branch.append(Linear(self.branch_dims[i], self.branch_dims[i+1], p=0., act=act, key=keys[i]))
-        
-        self.trunk = nn.Sequential(trunk)
-        self.branch = nn.Sequential(branch)
-        self.depth = len(self.trunk)
+        self.branch = Transformer(self.branch_dims[0], self.branch_dims[-1], args, key1)
+        self.trunk = MLP(self.trunk_dims[0], self.trunk_dims[-1], args, key2)
 
     def __call__(self, x, adj=None, w=None, key=prng(0)):
         keys = jax.random.split(key,10)
         tx, uz = x[:self.tx_dim], x[self.tx_dim:]
         u, z = uz[:self.u_dim], uz[self.u_dim:]
+        
+        #u = self.func_space(u)
+        b = self.branch(u, keys[1])
+        
         txz = jnp.concatenate([tx,z],axis=-1)
-        t = self.trunk[0](txz, keys[0])
-        b = u #self.func_space(u)
-        b = self.branch[0](b, keys[2])
-        keys = jax.random.split(keys[0])
+        t = self.trunk(txz, keys[0])
         
-        for i in range(1,self.depth-1):
-            t = self.trunk[i](t, keys[0])
-            b = self.branch[i](b, keys[1])
-            keys = jax.random.split(keys[0])
-        
-        t = self.trunk[-1](t, keys[0]).reshape(-1, self.p)
-        b = self.branch[-1](b, keys[1]).reshape(-1, self.p, self.x_dim)
-        G = jnp.einsum('ijk,ij -> i', b, t) / self.p
+        b = b.reshape(-1, self.p_dim, self.x_dim)
+        t = t.reshape(-1, self.p_dim)
+        G = jnp.einsum('ijk,ij -> ik', b, t) / self.p_dim
         
         return G
 

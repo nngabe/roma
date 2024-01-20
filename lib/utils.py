@@ -31,22 +31,21 @@ def init_he(model, key):
   model = eqx.tree_at(get_biases, model, new_biases)
   return model
 
-
 def save_model(model, log, path='../eqx_models/', stamp=None):
     if not os.path.exists(path): os.mkdir(path)
     stamp = stamp if stamp else str(int(time.time())) 
     with open(path + f'log_{stamp}.pkl','wb') as f: 
         pickle.dump(log,f)
-    eqx.tree_serialise_leaves(path + f'/cosynn_{stamp}.eqx', model)
+    eqx.tree_serialise_leaves(path + f'/renonet_{stamp}.eqx', model)
 
 def read_model(args):
     if isinstance(args,dict):
         args = Namespace(**args)
         args_path = glob.glob(f'../eqx_models/log*{args.log_path}*')[0]
-        param_path = glob.glob(f'../eqx_models/cosynn*{args.log_path}*')[0]
+        param_path = glob.glob(f'../eqx_models/renonet*{args.log_path}*')[0]
     elif args.log_path:
         args_path = glob.glob(f'../eqx_models/log*{args.log_path}*')[0]
-        param_path = glob.glob(f'../eqx_models/cosynn*{args.log_path}*')[0]
+        param_path = glob.glob(f'../eqx_models/renonet*{args.log_path}*')[0]
         with open(args_path, 'rb') as f: data = pickle.load(f)
         args_load = Namespace(**data['args'])
         #print(args, args_load)

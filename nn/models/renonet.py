@@ -98,12 +98,6 @@ class RenONet(eqx.Module):
         Bx = jnp.einsum('ij,kj -> ik', x, self.B)
         y = jnp.concatenate([jnp.cos(Bx), jnp.sin(Bx)], axis=-1)
         return y
-
-    def adv_enc(self, x, key=prng(0)):
-        key = jax.random.split(key,2)
-        y = x * jnp.exp(self.eta * jax.random.normal(key[0], x.shape))
-        x = x * jnp.exp(self.eta * jax.random.normal(key[1], x.shape))
-        return jnp.concatenate([x,y], axis=-1)
  
     def encode(self, x0, adj, t, eps=0.,key=prng(0)):
         x = self.fourier_enc(x0, key=key) if self.fe else x0
@@ -125,11 +119,6 @@ class RenONet(eqx.Module):
         z = jnp.concatenate([z0,ze], axis=-1)
         return z,s
 
-    def decode(self, tx, z, key=prng(0)):
-        txz = jnp.concatenate([tx,z], axis=-1)
-        u = self.decoder(txz, key=key)
-        return u, (u, txz)
-
     def renorm(self, t, x, adj, y, key=prng(0), mode='train'):
         w = None
         loss_ent = 0.
@@ -144,7 +133,6 @@ class RenONet(eqx.Module):
             tx = jnp.concatenate([t*v, x], axis=-1)
             z,s = self.embed_pool(x, adj, w, i, key)
             s = jax.vmap(self.ln_pool[i])(self.log(s))
-            #s = self.log(s)
             S[i] = jax.nn.softmax(s, axis=0)
             m,n = S[i].shape
             x = jnp.einsum('ij,ik -> jk', S[i], z) * (n/m)
@@ -164,8 +152,23 @@ class RenONet(eqx.Module):
         else:
             return z_r, y_r, loss_ent, S, A
 
+    def decode(self, tx, z, key=prng(0)):
+        if hasattr(self.decoder, 'branch'):
+            p_dim, x_dim = self.decoder.p_dim, self.decoder.x_dim
+            b_dim = p_dim * x_dim
+            branch,z = z[:b_dim], z[b_dim:]
+            txz = jnp.concatenate([tx, z], axis=-1)
+            trunk = self.decoder.trunk(txz, key)
+            branch = branch.reshape(p_dim, x_dim)
+            trunk = trunk.reshape(p_dim)
+            u = jnp.einsum('ij,i -> j', branch, trunk) / p_dim
+        else:    
+            txz = jnp.concatenate([tx,z], axis=-1)
+            u = self.decoder(txz, key=key)
+        return u, (u, txz)
+
     def val_grad(self, tx, z, key):
-        f = lambda tx: self.decode(tx,z,key)
+        f = lambda tx: self.decode(tx, z, key)
         grad, val = jax.jacfwd(f, has_aux=True)(tx)
         return grad, (grad, val)
 
@@ -180,15 +183,15 @@ class RenONet(eqx.Module):
         gpde, res = jax.jacfwd(self.pde.residual, has_aux=True)(tx, z, u, grad, lap_x, key)
         return res, gpde
 
-    def pde_bc(self, ):
-        
-        return 0.
-
     def forward(self, x0, adj, t, y, key, mode='train'):
         keys = jax.random.split(key,5)
         tx,z = self.encode(x0, adj, t, key=keys[0])
         t = tx[0,0]
         z, y, loss_ent, S, A = self.renorm(t, z, adj, y, key=keys[1], mode=mode)
+        if hasattr(self.decoder, 'branch'): 
+            b,z = z[:,:self.kappa],z[:,self.kappa:]
+            b = self.decoder.branch(b, keys[2])
+            z = jnp.concatenate([b,z], axis=-1) 
         tx = tx[0] * jnp.ones((z.shape[0],1))
         loss_data = loss_pde = loss_gpde = 0.
         for i in range(y.shape[0]):
@@ -212,7 +215,7 @@ class RenONet(eqx.Module):
             loss_data = loss_data[:self.batch_size].mean(), loss_data[self.batch_size:].mean()
             return jnp.array([loss_data[0], loss_data[1], loss_pde, loss_gpde, loss_ent])
         elif mode=='fwd': 
-            return u, red, y, grad, A, S 
+            return u, red, y, grad, S, A 
     
     def slaw_update(self, loss, state):
         assert state != None
@@ -260,6 +263,9 @@ class RenONet(eqx.Module):
     def enstrophy(self, grad_x):
         return jax.vmap(jnp.sum)(jnp.abs(grad_x))
 
+
+def forward(model, x, adj, t, y):
+    return model.forward(x, adj, t, y, key=prng(0), mode='fwd')
 
 @eqx.filter_jit
 @eqx.filter_value_and_grad(has_aux=True)

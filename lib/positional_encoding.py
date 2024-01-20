@@ -27,7 +27,7 @@ def node2vec(data, dim=128, device='cpu'):
                      context_size=10, walks_per_node=10,
                      num_negative_samples=1, p=1, q=1, sparse=True).to(device)
 
-    loader = model.loader(batch_size=dim, shuffle=True, num_workers=0)
+    loader = model.loader(batch_size=dim, shuffle=True, num_workers=-1)
     optimizer = torch.optim.SparseAdam(list(model.parameters()), lr=0.01)
 
     def train():

@@ -61,65 +61,38 @@ def get_dim_act(args, module):
 
     return dims, act, curvatures
 
-class Attention(eqx.Module):
-    multihead: eqx.nn.MultiheadAttention
-    norm: List[eqx.nn.LayerNorm]
-    ffn: eqx.nn.Sequential
-    dropout: eqx.nn.Dropout
-
-    def __init__(self, in_dim, out_dim, num_heads=4, hidden_dim=None, p=0., affine=True, act=jax.nn.silu, key=prng_key):
-
-        if hidden_dim==None: hidden_dim = 3 * out_dim
-        self.multihead = eqx.nn.MultiheadAttention(num_heads, in_dim, key=key)
-        self.norm = [eqx.nn.LayerNorm(in_dim, use_weight=affine),
-                     eqx.nn.LayerNorm(out_dim, use_weight=affine)]
-        self.ffn = eqx.nn.Sequential([eqx.nn.Linear(in_dim, hidden_dim, key=key),
-                       eqx.nn.Dropout(p),
-                       lambda x,key: act(x),
-                       eqx.nn.Linear(hidden_dim, out_dim, key=key)])
-        self.dropout = eqx.nn.Dropout(p)
-        
-    def __call__(self, x, key=prng_key):
-
-        a = self.multihead(x,x,x)
-        x = x + self.dropout(a, key=key)
-        x = self.norm[0](x)
-
-        y = jax.vmap(self.ffn)(x)
-        x = self.dropout(y, key=key)
-        x = self.norm[1](x)
-        return x
-
 class Linear(eqx.Module): 
     linear: eqx.nn.Linear
     act: Callable
     dropout: Callable
+    norm: eqx.nn.LayerNorm
     
-    def __init__(self, in_features, out_features, p=0., act=jax.nn.silu, key=prng_key):
+    def __init__(self, in_features, out_features, dropout_rate=0., act=jax.nn.gelu, key=prng_key):
         super(Linear, self).__init__()
         self.linear = eqx.nn.Linear(in_features, out_features,  key=key)
         self.act = act
-        self.dropout = dropout(p)
+        self.dropout = dropout(dropout_rate)
+        self.norm = eqx.nn.LayerNorm(out_features)
 
     def __call__(self, x, key=prng_key):
         x = self.dropout(x, key=key)
         x = self.linear(x)
-        out = self.act(x)
-        return out
-
+        x = self.act(x)
+        x = self.norm(x)
+        return x
 
 class GCNConv(eqx.Module):
-    p: float
+    dropout_rate: float
     linear: eqx.nn.Linear
     act: Callable
     dropout: Callable
 
-    def __init__(self, in_features, out_features, p=0., act=jax.nn.silu, use_bias=True):
+    def __init__(self, in_features, out_features, p=0., act=jax.nn.gelu, use_bias=True):
         super(GCNConv, self).__init__()
-        self.p = p
+        self.dropout_rate = p
         self.linear = nn.Linear(in_features, out_features, use_bias, key=prng_key)
         self.act = act
-        self.dropout = lambda x: dropout(self.p)(x, inference=False, key=prng_key)
+        self.dropout = dropout(self.dropout_rate)
 
     def __call__(self, x, adj):
         n = x.shape[0]
@@ -148,7 +121,7 @@ class GATConv(eqx.Module):
     act: Callable
     dropout: Callable
 
-    def __init__(self, in_features, out_features, p=0., act=jax.nn.silu, use_bias=True, num_heads=3, query_dim=8):
+    def __init__(self, in_features, out_features, p=0., act=jax.nn.gelu, use_bias=True, num_heads=3, query_dim=8):
         super(GATConv, self).__init__()
         self.dropout = dropout(p)
         self.W = nn.Linear(in_features, query_dim * num_heads, key=prng_key) 

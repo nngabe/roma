@@ -7,6 +7,8 @@ config_args = {
     'training_config': {
         'lr': (1e-3, 'learning rate'),
         'dropout': (0., 'dropout probability'),
+        'dropout_branch': (0., 'dropout probability in the branch net'),
+        'dropout_trunk': (0., 'dropout probability in the trunk net'),
         'epochs': (80000, 'number of epochs to train for'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
         'weight_decay': (1e-3, 'l2 regularization strength'),
@@ -17,7 +19,7 @@ config_args = {
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
         'num_col': (10, 'number of colocation points in the time domain'),
         'batch_size': (128, 'number of nodes in test and batch graphs'),
-        'batch_down_sample': (20, 'factor to down sample training set.'),
+        'batch_down_sample': (18, 'factor to down sample training set.'),
         'batch_walk_len': (3, 'length of GraphSAINT sampler random walks.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'batch_red': (2, 'factor of reduction for batch size'),
@@ -33,17 +35,17 @@ config_args = {
         'embed_init': (2, 'flag indicating number of embedding modules which remain to be init-ed.'), 
 
         # loss weights
-        'w_data': (1., 'weight for data loss.'),
-        'w_pde': (1e+3, 'weight for pde loss.'),
-        'w_gpde': (1e+6, 'weight for gpde loss.'),
-        'w_ent': (1e+0, 'weight for assignment matrix entropy loss.'),
+        'w_data': (1e+0, 'weight for data loss.'),
+        'w_pde': (1e+2, 'weight for pde loss.'),
+        'w_gpde': (1e+5, 'weight for gpde loss.'),
+        'w_ent': (1e-1, 'weight for assignment matrix entropy loss.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
         'rep_scaler': (1., 'rescaling of graph features'),
 
         # which layers use time encodings and what dim should encodings be
-        'pe_dim': (20, 'dimension of positional encoding'),
+        'pe_dim': (24, 'dimension of positional encoding'),
         'time_enc': ([0,1,1], 'whether to insert time encoding in encoder, decoder, and pde functions, respectively.'),
         'time_dim': (1, 'dimension of time embedding'), 
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
@@ -67,7 +69,7 @@ config_args = {
         'pde': ('emergent', 'which PDE to use for the PINN loss'),
         'pool': ('HGCN', 'which model to compute coarsening matrices'),
         'func_space': ('PowerSeries', 'function space for DeepOnet.'),
-        'p_basis': (20, 'size of DeepOnet basis'),
+        'p_basis': (30, 'size of DeepOnet basis'),
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
         'enc_width': (64, 'dimensions of encoder layers'),
@@ -75,9 +77,9 @@ config_args = {
         'pde_width': (512, 'dimensions of each pde layers'),
         'pool_width': (256, 'dimensions of each pde layers'),
         'enc_depth': (2, 'dimensions of encoder layers'),
-        'dec_depth': (3,'dimensions of decoder layers'),
-        'pde_depth': (3, 'dimensions of each pde layers'),
-        'pool_depth': (2, 'dimensions of each pooling layer'),
+        'dec_depth': (4,'dimensions of decoder layers'),
+        'pde_depth': (4, 'dimensions of each pde layers'),
+        'pool_depth': (3, 'dimensions of each pooling layer'),
         'enc_dims': ([-1,96,-1], 'dimensions of encoder layers'),
         'dec_dims': ([-1,256,256,-1],'dimensions of decoder layers'),
         'pde_dims': ([-1,256,256,1], 'dimensions of each pde layers'),
@@ -93,9 +95,12 @@ config_args = {
         'res': (0, 'whether to use sum skip connections or not.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
         'c': (1.0, 'hyperbolic radius, set to None for trainable curvature'),
-        
+       
+        # transformer params
+        'num_heads': (6, 'number of heads in transformer blocks.'),
+ 
         # graph encoder params
-        'n_heads': (4, 'number of attention heads for graph attention networks, must be a divisor dim'),
+        'n_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
         'affine': (True, 'affine transformation in layernorm'),
         'alpha': (0.2, 'alpha for leakyrelu in graph attention networks'),
         'use_att': (0, 'whether to use hyperbolic attention or not'),
@@ -103,7 +108,7 @@ config_args = {
         'local_agg': (0, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
-        'path': ('N893', 'snippet from which to infer data path'),
+        'path': ('t1701972209', 'snippet from which to infer data path'),
         'log_path': (None, 'snippet from which to infer log/model path.'),
         'test_prop': (0.1, 'proportion of test nodes for forecasting'),
     }
@@ -112,13 +117,18 @@ config_args = {
 def set_dims(args):
     # read cached pe if loading from path
     if args.log_path != None: args.use_cached = True
-
+    
+    # size of renorm/pooling graphs
+    args.pool_size = [args.batch_size//args.pool_red**i for i in range(1,args.pool_init+1)]
+    args.num_nodes = args.batch_size + sum(args.pool_size)
+    
     # pe dims
     args.le_size = args.pe_dim
     args.rw_size = args.pe_dim
     args.n2v_size = sup_power_of_two(2*args.pe_dim)
     
     # layer dims (enc,renorm,pde,dec)
+    args.pde_depth = args.dec_depth
     args.enc_dims[0] = args.f_dim * 2 if args.fe else args.kappa
     args.enc_dims[0] += args.le_size + args.rw_size + args.n2v_size
     args.enc_dims[-1] = args.enc_width 
@@ -130,7 +140,6 @@ def set_dims(args):
     args.embed_dims[1:-1] = (args.pool_depth-1) * [args.pool_width]
     if args.res:
         enc_out = args.enc_dims[-1]
-        #args.kappa = 0
         args.dec_dims[0] = enc_out + args.time_enc[1] * args.time_dim
     elif args.skip: 
         enc_out = sum(args.enc_dims)
@@ -147,7 +156,6 @@ def set_dims(args):
     args.pool_dims[0] = enc_out - args.x_dim 
     args.embed_dims[0] = enc_out - args.x_dim - args.kappa 
     args.embed_dims[-1] = args.embed_dims[0] 
-
 
     return args 
 

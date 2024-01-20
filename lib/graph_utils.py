@@ -10,19 +10,48 @@ import matplotlib.pyplot as plt
 
 prng = lambda: jax.random.PRNGKey(0)
 
-def get_next_batch(loader, args):
+def get_next_batch(loader, args, data):
     bsize = 0
-    for i in range(5):
+    for i in range(20):
         batch = next(iter(loader))
         bsize=batch.num_nodes
-        if bsize < args.batch_size:
+        if bsize <= args.batch_size:
             break
     if bsize > args.batch_size: 
         args.batch_down_sample += 1
-        print(f'batch_down_sample = {args.batch_down_sample}')
-        loader = GraphSAINTRandomWalkSampler(data_load, batch_size=data_load.idx.shape[0]//args.batch_down_sample, walk_length=args.batch_walk_len)
-        batch = get_next_batch(loader, args)
+        if args.batch_down_sample//5==0: print(f'batch_down_sample = {args.batch_down_sample}')
+        loader = GraphSAINTRandomWalkSampler(data, batch_size=data.idx.shape[0]//args.batch_down_sample, walk_length=args.batch_walk_len)
+        batch, loader = get_next_batch(loader, args, data)
     return batch, loader
+
+def sup_power_of_two(x: int) -> int:
+    y = 2
+    while y < x:
+        y *= 2
+    return y
+
+def pad_graph(x: np.ndarray, 
+              adj: np.ndarray, 
+              pe: np.ndarray,
+              x_size: int = None, 
+              adj_size: int = None,
+              pad_x : bool = True) -> Tuple[np.ndarray, ...]:
+    x_size = sup_power_of_two(x.shape[0]) if not x_size else x_size
+    adj_size = sup_power_of_two(adj.shape[1]+500) if not adj_size else adj_size
+    x_pad = 0.*np.ones((x_size-x.shape[0], x.shape[1]))
+    pe_pad = 0.*np.ones((x_size-x.shape[0], pe.shape[1]))
+    adj_pad = -1*np.ones((adj.shape[0], adj_size-adj.shape[1]), dtype=np.int32)
+    if pad_x:
+        return np.concatenate([x, x_pad], axis=0), np.concatenate([adj, adj_pad], axis=1), np.concatenate([pe, pe_pad], axis=0)
+    else:
+        return x, jnp.concatenate([adj, adj_pad],axis=1), pe
+
+def pad_adj(adj: jnp.ndarray,
+            adj_size: int = None,
+            fill_value: int = -1) -> jnp.ndarray:
+    adj_size = sup_power_of_two(adj.shape[1]) if not adj_size else adj_size
+    adj_pad = fill_value * jnp.ones((adj.shape[0], adj_size-adj.shape[1]), dtype=jnp.int32)
+    return jnp.concatenate([adj, adj_pad],axis=1)
 
 def index_to_mask(index, size):
     
@@ -39,14 +68,22 @@ def subgraph(
     pe: jnp.ndarray,
     relabel_nodes: bool = True,
     pad: bool = True,
-    pad_size: List[int] = [None,None]
+    pad_size: List[int] = [None,None],
+    min_degree: int = 3
     ):
     """ get the subraph indexed by subset. """
     if not isinstance(index, jnp.ndarray): index = jnp.array(index)
 
+    num_nodes = index.shape[0] #jnp.unique(jnp.concatenate(adj)).size
+    node_mask = index_to_mask(index, size=num_nodes)
+    edge_mask = node_mask[adj[0]] & node_mask[adj[1]]
+    adj = adj[:, edge_mask]
+    index, degree = jnp.unique(adj, return_counts=True)
+    index = index[degree>=min_degree]
+    
     x = x[index]
     pe = pe[index]
-    num_nodes = jnp.unique(jnp.concatenate(adj)).size
+    num_nodes = index.shape[0] #jnp.unique(jnp.concatenate(adj)).size
     node_mask = index_to_mask(index, size=num_nodes)
     edge_mask = node_mask[adj[0]] & node_mask[adj[1]]
     adj = adj[:, edge_mask]
@@ -61,34 +98,6 @@ def subgraph(
 
     return x, adj, pe 
 
-def sup_power_of_two(x: int) -> int:
-    y = 2
-    while y < x:
-        y *= 2
-    return y
-
-def pad_adj(adj: jnp.ndarray, 
-            adj_size: int = None,
-            fill_value: int = -1) -> jnp.ndarray:
-    adj_size = sup_power_of_two(adj.shape[1]) if not adj_size else adj_size
-    adj_pad = fill_value * jnp.ones((adj.shape[0], adj_size-adj.shape[1]), dtype=jnp.int32)
-    return jnp.concatenate([adj, adj_pad],axis=1)
-
-def pad_graph(x: jnp.ndarray, 
-              adj: jnp.ndarray, 
-              pe: jnp.ndarray,
-              x_size: int = None, 
-              adj_size: int = None,
-              pad_x : bool = True)-> Tuple[jnp.ndarray, ...]:
-    x_size = sup_power_of_two(x.shape[0]) if not x_size else x_size
-    adj_size = sup_power_of_two(adj.shape[1]+500) if not adj_size else adj_size
-    x_pad = 0.*jnp.ones((x_size-x.shape[0], x.shape[1]))
-    pe_pad = 0.*jnp.ones((x_size-x.shape[0], pe.shape[1]))
-    adj_pad = -1*jnp.ones((adj.shape[0], adj_size-adj.shape[1]), dtype=jnp.int32)
-    if pad_x:
-        return jnp.concatenate([x, x_pad], axis=0), jnp.concatenate([adj, adj_pad],axis=1), jnp.concatenate([pe, pe_pad], axis=0)
-    else:
-        return x, jnp.concatenate([adj, adj_pad],axis=1), pe
 
 def dense_to_coo(A: jnp.ndarray) -> jnp.ndarray:
     adj = jnp.mask_indices(A.shape[0], lambda x,k: x)
