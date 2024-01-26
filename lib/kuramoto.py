@@ -3,7 +3,7 @@ warnings.filterwarnings('ignore')
 
 ## plotting preferences
 import matplotlib.pyplot as plt
-plt.rcParams['figure.figsize'] = [12,8]; plt.rcParams['font.size'] = 24; plt.rcParams['xtick.major.size'] = 8
+plt.rcParams['figure.figsize'] = [8,6]; plt.rcParams['font.size'] = 24; plt.rcParams['xtick.major.size'] = 8
 plt.rcParams['font.sans-serif'] = 'Computer Modern Sans Serif'; plt.rcParams['text.usetex'] = True
 
 import argparse
@@ -12,7 +12,7 @@ import pandas as pd
 import networkx as nx
 import numpy as np
 import glob
-import os
+import os,sys
 from collections import defaultdict
 
 from community import community_louvain
@@ -24,9 +24,8 @@ import scipy
 
 from graph_utils import gen_graph
 
-from jax.config import config; config.update("jax_enable_x64", True)
 np.random.seed(123)
-PATH = os.path.expanduser('~/kur')
+PATH = os.path.expanduser('~/data')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--precision', nargs='?', default=1e-16, type=float)
@@ -41,8 +40,9 @@ parser.add_argument('--steps', nargs='?', default=20000, type=int)
 parser.add_argument('--dt', nargs='?', default=1e-3, type=float)
 parser.add_argument('--save', nargs='?', default=0, type=int)
 parser.add_argument('--seed', nargs='?', default=123, type=int)
+parser.add_argument('--plot', nargs='?', default=False, type=bool)
 parser.add_argument('--gplot', nargs='?', default=False, type=bool)
-parser.add_argument('--periods', nargs='?', default=3, type=int)
+parser.add_argument('--periods', nargs='?', default=1., type=float)
 args = parser.parse_args()
 
 tic = time.time()
@@ -53,6 +53,7 @@ N=args.N
 seed=71
 
 G, part, re = gen_graph(N, avg_degree, c, seed=seed, plot=args.gplot)
+from jax.config import config; config.update("jax_enable_x64", True)
 
 com = defaultdict(list)
 for key, value in part.items():
@@ -99,9 +100,9 @@ def f(x,t):
     return omega_i + msg_i
 
 tt = np.linspace(0.,dt*steps,steps)
-pd.DataFrame(_K(tt),columns=[r'$K(t)$']).plot()
-#U = jnp.abs(jnp.modf(1e+2*msg_i)[0])
-#zeta_i = eps * jax.scipy.special.ndtri(U)
+Ktt = _K(tt)
+if args.plot:
+    pd.DataFrame(Ktt,columns=[r'$K(t)$']).plot()
 
 key = jax.random.PRNGKey(0)
 
@@ -110,8 +111,10 @@ print(f'compute time (jax DP): {time.time()-tic:.3f} (sec)'); tic = time.time()
 x = np.array(x).T
 
 
-pd.DataFrame(np.where(A)).to_csv(f'{PATH}/adj_K{K}_N{A.shape[0]}_c{c}_p{p}_t{int(tic)}.csv')
-pd.DataFrame(x).to_csv(f'{PATH}/x_K{K}_N{A.shape[0]}_c{c}_p{p}_t{int(tic)}.csv')
+pd.DataFrame(np.where(A)).to_csv(f'{PATH}/adj_K{K}.{10.*Ktt.var():.2f}_N{A.shape[0]}_c{c}_p{p}_t{int(tic)}.csv')
+pd.DataFrame(x).to_csv(f'{PATH}/x_K{K}.{10.*Ktt.var():.2f}_N{A.shape[0]}_c{c}_p{p}_t{int(tic)}.csv')
+
+if not args.plot: sys.exit(0)
 
 ax = pd.DataFrame(x.T).diff().iloc[steps//10::100,:40].plot(legend=False,logx=False)
 ax.set_ylabel(r'$\theta_i$', rotation=90, fontsize=30); ax.set_xlabel(r'$t$', rotation=0, fontsize=30)

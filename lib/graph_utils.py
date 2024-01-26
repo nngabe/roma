@@ -19,7 +19,6 @@ def get_next_batch(loader, args, data):
             break
     if bsize > args.batch_size: 
         args.batch_down_sample += 1
-        if args.batch_down_sample//5==0: print(f'batch_down_sample = {args.batch_down_sample}')
         loader = GraphSAINTRandomWalkSampler(data, batch_size=data.idx.shape[0]//args.batch_down_sample, walk_length=args.batch_walk_len)
         batch, loader = get_next_batch(loader, args, data)
     return batch, loader

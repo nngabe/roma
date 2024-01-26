@@ -268,13 +268,14 @@ class HGCN(GraphNet):
         self.manifold = getattr(manifolds, args.manifold)()
         dims, act, self.curvatures = get_dim_act(args,module)
         self.curvatures.append(args.c)
+        use_att = args.use_att_enc if module=='enc' else args.use_att_pool
         hgc_layers = []
         lin_layers = []
         key, subkey = jax.random.split(prng(0))
         for i in range(len(dims) - 1):
             c_in, c_out = self.curvatures[i], self.curvatures[i + 1]
             in_dim, out_dim = dims[i], dims[i + 1]
-            hgc_layers.append( hyp_layers.HGCNLayer( key, self.manifold, in_dim, out_dim, c_in, c_out, args.dropout, act, args.bias, args.use_att))
+            hgc_layers.append( hyp_layers.HGCNLayer( key, self.manifold, in_dim, out_dim, c_in, c_out, args.dropout, act, args.bias, use_att))
             if in_dim==out_dim:
                 lin_layers.append( lambda x: x)
             else:

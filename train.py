@@ -23,7 +23,7 @@ from torch_geometric.data import Data
 from torch_geometric.loader import GraphSAINTRandomWalkSampler
 from torch_geometric.transforms import LargestConnectedComponents as LCC
 
-from nn.models.renonet import RenONet, loss_scan, loss_terms, make_step, forward
+from nn.models.renonet import RenONet, loss_train, loss_report, make_step
 from config import parser, set_dims
 
 from lib import utils
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n\n')
     
     args = set_dims(args)    
-    pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached)
+    pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached_pe)
     
     A = pd.read_csv(args.adj_path, index_col=0).to_numpy()
     adj = A if A.shape[0]==2 else np.where(A)
@@ -147,7 +147,7 @@ if __name__ == '__main__':
         yi = x[:,bundles].T
         yi = jnp.swapaxes(yi,0,1)
         xi = _batch(x, pe, idx)
-        (loss, state), grad = loss_scan(model, xi, adj, ti, yi, key=key, mode='train', state=state)
+        (loss, state), grad = loss_train(model, xi, adj, ti, yi, key=key, mode='train', state=state)
         grad = jax.tree_map(lambda x: 0. if jnp.isnan(x).any() else x, grad) 
         
         model, opt_state = make_step(grad, model, opt_state, optim)
@@ -164,7 +164,7 @@ if __name__ == '__main__':
             yi = jnp.swapaxes(yi,0,1)
             xi = _batch(x, pe, idx)
             
-            terms, _ = loss_terms(model, xi, adj, ti, yi)
+            terms, _ = loss_report(model, xi, adj, ti, yi)
             loss = [term.mean() for term in terms]
             log['loss'][i] = [loss[0].item(), loss[1].item(), loss[2].item(), loss[3].item(), loss[4].item()]
             

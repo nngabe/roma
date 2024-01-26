@@ -36,16 +36,16 @@ config_args = {
 
         # loss weights
         'w_data': (1e+0, 'weight for data loss.'),
-        'w_pde': (1e+2, 'weight for pde loss.'),
-        'w_gpde': (1e+5, 'weight for gpde loss.'),
-        'w_ent': (1e-1, 'weight for assignment matrix entropy loss.'),
+        'w_pde': (1e+1, 'weight for pde loss.'),
+        'w_gpde': (1e+4, 'weight for gpde loss.'),
+        'w_ent': (1e-2, 'weight for assignment matrix entropy loss.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
         'rep_scaler': (1., 'rescaling of graph features'),
 
         # which layers use time encodings and what dim should encodings be
-        'pe_dim': (24, 'dimension of positional encoding'),
+        'pe_dim': (32, 'dimension of positional encoding'),
         'time_enc': ([0,1,1], 'whether to insert time encoding in encoder, decoder, and pde functions, respectively.'),
         'time_dim': (1, 'dimension of time embedding'), 
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
@@ -55,7 +55,7 @@ config_args = {
         'rw_size': (0, 'size of random walk (diffusion) positional encoding'),
         'n2v_size': (0, 'size of node2vec positional encoding'),
         'pe_norm': (True, 'apply norm (standard scaler) on each pe type'),
-        'use_cached': (True, 'whether to use previously computed embeddings or not'),
+        'use_cached_pe': (False, 'whether to use previously computed embeddings or not'),
 
         # input/output sizes
         'fe': (0, 'encode features or not'),
@@ -66,19 +66,19 @@ config_args = {
         # specify models. pde function layers are the same as the decoder layers by default.
         'encoder': ('HGCN', 'which encoder to use'),
         'decoder': ('DeepOnet', 'which decoder to use'),
-        'pde': ('emergent', 'which PDE to use for the PINN loss'),
+        'pde': ('emergent', 'which pde to use for the pde loss'),
         'pool': ('HGCN', 'which model to compute coarsening matrices'),
         'func_space': ('PowerSeries', 'function space for DeepOnet.'),
-        'p_basis': (30, 'size of DeepOnet basis'),
+        'p_basis': (100, 'size of DeepOnet basis'),
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
-        'enc_width': (64, 'dimensions of encoder layers'),
+        'enc_width': (96, 'dimensions of encoder layers'),
         'dec_width': (512,'dimensions of decoder layers'),
         'pde_width': (512, 'dimensions of each pde layers'),
         'pool_width': (256, 'dimensions of each pde layers'),
         'enc_depth': (2, 'dimensions of encoder layers'),
-        'dec_depth': (4,'dimensions of decoder layers'),
-        'pde_depth': (4, 'dimensions of each pde layers'),
+        'dec_depth': (6,'dimensions of decoder layers'),
+        'pde_depth': (-1, 'dimensions of each pde layers'),
         'pool_depth': (3, 'dimensions of each pooling layer'),
         'enc_dims': ([-1,96,-1], 'dimensions of encoder layers'),
         'dec_dims': ([-1,256,256,-1],'dimensions of decoder layers'),
@@ -100,15 +100,13 @@ config_args = {
         'num_heads': (6, 'number of heads in transformer blocks.'),
  
         # graph encoder params
-        'n_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
-        'affine': (True, 'affine transformation in layernorm'),
-        'alpha': (0.2, 'alpha for leakyrelu in graph attention networks'),
-        'use_att': (0, 'whether to use hyperbolic attention or not'),
-        'use_att_pool': (0, 'whether to use hyperbolic attention or not'),
+        'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
+        'use_att_enc': (0, 'whether to use hyperbolic attention in encoder layers or not'),
+        'use_att_pool': (0, 'whether to use hyperbolic attention in graph pooling layers or not'),
         'local_agg': (0, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
-        'path': ('t1701972209', 'snippet from which to infer data path'),
+        'path': ('t1706040610','snippet from which to infer data path'),
         'log_path': (None, 'snippet from which to infer log/model path.'),
         'test_prop': (0.1, 'proportion of test nodes for forecasting'),
     }
@@ -116,7 +114,7 @@ config_args = {
 
 def set_dims(args):
     # read cached pe if loading from path
-    if args.log_path != None: args.use_cached = True
+    #if args.log_path != None: args.use_cached = True
     
     # size of renorm/pooling graphs
     args.pool_size = [args.batch_size//args.pool_red**i for i in range(1,args.pool_init+1)]
@@ -153,8 +151,8 @@ def set_dims(args):
     else: 
         args.pde_dims[0] = args.dec_dims[0] 
         
-    args.pool_dims[0] = enc_out - args.x_dim 
-    args.embed_dims[0] = enc_out - args.x_dim - args.kappa 
+    args.pool_dims[0] = enc_out
+    args.embed_dims[0] = enc_out - args.kappa 
     args.embed_dims[-1] = args.embed_dims[0] 
 
     return args 
