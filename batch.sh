@@ -14,7 +14,7 @@ i=0
 for ((i=0; i<$m; i++)); do
   line=$(sed -n "$((i+1))p" $file)
   if [[ "$line" != +(*"&"*|*"#"*) ]]; then
-    sed -n "$((i+1))p" $file | xargs timeout $MAX_TIME python train.py
+    sed -n "$((i+1))p" $file | xargs timeout $MAX_TIME python -u train.py
   fi
 done
 wait

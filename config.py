@@ -5,11 +5,11 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (1e-3, 'learning rate'),
-        'dropout': (0., 'dropout probability'),
-        'dropout_branch': (0., 'dropout probability in the branch net'),
-        'dropout_trunk': (0., 'dropout probability in the trunk net'),
-        'epochs': (80000, 'number of epochs to train for'),
+        'lr': (2e-4, 'learning rate'),
+        'dropout': (0.0, 'dropout probability'),
+        'dropout_branch': (0.05, 'dropout probability in the branch net'),
+        'dropout_trunk': (0.0, 'dropout probability in the trunk net'),
+        'epochs': (20000, 'number of epochs to train for'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
         'weight_decay': (1e-3, 'l2 regularization strength'),
         'beta': (0.99, 'moving average coefficient for SLAW'),
@@ -36,8 +36,8 @@ config_args = {
 
         # loss weights
         'w_data': (1e+0, 'weight for data loss.'),
-        'w_pde': (1e+1, 'weight for pde loss.'),
-        'w_gpde': (1e+4, 'weight for gpde loss.'),
+        'w_pde': (1e+0, 'weight for pde loss.'),
+        'w_gpde': (1e+3, 'weight for gpde loss.'),
         'w_ent': (1e-2, 'weight for assignment matrix entropy loss.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
@@ -55,7 +55,7 @@ config_args = {
         'rw_size': (0, 'size of random walk (diffusion) positional encoding'),
         'n2v_size': (0, 'size of node2vec positional encoding'),
         'pe_norm': (True, 'apply norm (standard scaler) on each pe type'),
-        'use_cached_pe': (False, 'whether to use previously computed embeddings or not'),
+        'use_cached_pe': (True, 'whether to use previously computed embeddings or not'),
 
         # input/output sizes
         'fe': (0, 'encode features or not'),
@@ -68,16 +68,19 @@ config_args = {
         'decoder': ('DeepOnet', 'which decoder to use'),
         'pde': ('emergent', 'which pde to use for the pde loss'),
         'pool': ('HGCN', 'which model to compute coarsening matrices'),
-        'func_space': ('PowerSeries', 'function space for DeepOnet.'),
+        'func_space': ('GRF', 'function space for DeepOnet.'),
+        'length_scale': (1., 'length scale for GRF'),
+        'num_func': (32, 'number of functions to sample from func_space'),
+        'num_spl': (1000, 'number of spline points for GRF'),
         'p_basis': (100, 'size of DeepOnet basis'),
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
         'enc_width': (96, 'dimensions of encoder layers'),
-        'dec_width': (512,'dimensions of decoder layers'),
-        'pde_width': (512, 'dimensions of each pde layers'),
+        'dec_width': (640,'dimensions of decoder layers'),
+        'pde_width': (640, 'dimensions of each pde layers'),
         'pool_width': (256, 'dimensions of each pde layers'),
         'enc_depth': (2, 'dimensions of encoder layers'),
-        'dec_depth': (6,'dimensions of decoder layers'),
+        'dec_depth': (5,'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
         'pool_depth': (3, 'dimensions of each pooling layer'),
         'enc_dims': ([-1,96,-1], 'dimensions of encoder layers'),
@@ -96,14 +99,17 @@ config_args = {
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
         'c': (1.0, 'hyperbolic radius, set to None for trainable curvature'),
        
-        # transformer params
-        'num_heads': (6, 'number of heads in transformer blocks.'),
- 
+        # DeepONet params
+        'num_heads': (8, 'number of heads in transformer blocks.'),
+        'trunk_res': (True, 'use residual connections in trunk net.'),
+        'trunk_norm': (True, 'use layer norm in trunk net.'),
+         
+
         # graph encoder params
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
         'use_att_enc': (0, 'whether to use hyperbolic attention in encoder layers or not'),
         'use_att_pool': (0, 'whether to use hyperbolic attention in graph pooling layers or not'),
-        'local_agg': (0, 'whether to local tangent space aggregation or not')
+        'local_agg': (1, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
         'path': ('t1706040610','snippet from which to infer data path'),
@@ -137,13 +143,13 @@ def set_dims(args):
     args.pool_dims[1:-1] = (args.pool_depth-1) * [args.pool_width]
     args.embed_dims[1:-1] = (args.pool_depth-1) * [args.pool_width]
     if args.res:
-        enc_out = args.enc_dims[-1]
+        enc_out = args.enc_dims[-1] + args.x_dim
         args.dec_dims[0] = enc_out + args.time_enc[1] * args.time_dim
     elif args.skip: 
-        enc_out = sum(args.enc_dims)
+        enc_out = sum(args.enc_dims) + args.x_dim
         args.dec_dims[0] = enc_out + args.time_enc[1] * args.time_dim 
     else: 
-        enc_out = args.enc_dims[-1]
+        enc_out = args.enc_dims[-1] + args.x_dim
         args.dec_dims[0] = enc_out + args.time_enc[1] * args.time_dim 
     
     if args.pde=='emergent':
@@ -151,8 +157,8 @@ def set_dims(args):
     else: 
         args.pde_dims[0] = args.dec_dims[0] 
         
-    args.pool_dims[0] = enc_out
-    args.embed_dims[0] = enc_out - args.kappa 
+    args.pool_dims[0] = enc_out - args.x_dim
+    args.embed_dims[0] = enc_out - args.kappa - args.x_dim 
     args.embed_dims[-1] = args.embed_dims[0] 
 
     return args 

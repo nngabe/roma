@@ -1,5 +1,5 @@
 import sys
-from typing import List, Dict
+from typing import List, Dict, Callable
 
 from nn.models import models
 
@@ -21,18 +21,22 @@ class neural_burgers(eqx.Module):
     F_max: jnp.float32
     v_max: jnp.float32
     x_dim: int
+    time_encode: Callable
 
-    def __init__(self, args, module='pde'):
+    def __init__(self, args, module='pde', parent=None):
         super(neural_burgers, self).__init__()
         self.F = getattr(models, args.decoder)(args, module='pde')
         self.v = getattr(models, args.decoder)(args, module='pde')
         self.F_max = args.F_max
         self.v_max = args.v_max
         self.x_dim = args.x_dim
+        self.time_encode = parent.time_encode
 
     def residual(self, tx, z, u, grad, lap_x, key):
         grad_t = grad[:,0]
         grad_x = grad[:,1:]
+        t = self.time_encode(tx[:1])
+        tx = jnp.concatenate([t,tx[1:]], axis=-1)
         txz = jnp.concatenate([tx, z], axis=-1)
         F = self.F_max * jax.nn.sigmoid(self.F(txz,key))
         v = self.v_max * jax.nn.sigmoid(self.v(txz,key))
@@ -53,18 +57,22 @@ class emergent(eqx.Module):
     x_dim: int
     p_dim: int
     lin_red: eqx.nn.Linear
+    time_encode: Callable
 
-    def __init__(self, args, module='pde'):
+    def __init__(self, args, module='pde', parent=None):
         super(emergent, self).__init__()
         self.F = getattr(models, args.decoder)(args, module='pde')
         self.F_max = args.F_max
         self.x_dim = args.x_dim
         self.p_dim = args.p_basis
         self.lin_red = eqx.nn.Linear(self.x_dim,1,key=prng())
+        self.time_encode = lambda x: parent.time_encode(x)
 
     def residual(self, tx, z, u, grad, lap_x, key):
         grad_t = grad[:,0]
         grad_x = grad[:,1:].ravel()
+        t = self.time_encode(tx[:1])
+        tx = jnp.concatenate([t,tx[1:]], axis=-1)
         if hasattr(self.F, 'branch'):
             p_dim, x_dim = self.p_dim, self.x_dim
             b_dim = p_dim * x_dim

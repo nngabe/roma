@@ -65,20 +65,20 @@ class Linear(eqx.Module):
     linear: eqx.nn.Linear
     act: Callable
     dropout: Callable
-    norm: eqx.nn.LayerNorm
-    
-    def __init__(self, in_features, out_features, dropout_rate=0., act=jax.nn.gelu, key=prng_key):
+    ln: eqx.nn.LayerNorm
+    norm: bool    
+    def __init__(self, in_features, out_features, dropout_rate=0., act=jax.nn.gelu, key=prng_key, norm=True):
         super(Linear, self).__init__()
         self.linear = eqx.nn.Linear(in_features, out_features,  key=key)
         self.act = act
         self.dropout = dropout(dropout_rate)
-        self.norm = eqx.nn.LayerNorm(out_features)
-
+        self.ln = eqx.nn.LayerNorm(out_features)
+        self.norm = norm
     def __call__(self, x, key=prng_key):
         x = self.dropout(x, key=key)
         x = self.linear(x)
         x = self.act(x)
-        x = self.norm(x)
+        x = self.ln(x) if self.norm else x
         return x
 
 class GCNConv(eqx.Module):

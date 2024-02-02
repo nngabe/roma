@@ -91,9 +91,11 @@ if __name__ == '__main__':
 
     if args.verbose: 
         print(f'\nMODULE: MODEL[DIMS](curv)')
-        print(f' encoder: {args.encoder}{args.enc_dims}({args.c})')
+        print(f' encoder: {args.encoder}{args.enc_dims}{args.manifold[:3]}(c={args.c})')
         print(f' decoder: {args.decoder}{args.dec_dims}')
         print(f' pde: {args.pde}/{args.decoder}{args.pde_dims}')
+        print(f' func_space: {args.func_space}(l={args.length_scale})')
+        print(f' branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
         print(' pool:')
         for i in model.pool.pools.keys(): 
             pdims = args.pool_dims
@@ -113,7 +115,7 @@ if __name__ == '__main__':
         print(f'\nx[train] = {x[idx_train].shape}, adj[train] = {edge_index_train.shape}')
         print(f'x[test]  = {x[idx_test].shape},  adj[test]  = {adj_test.shape}')
     
-    schedule = optax.warmup_exponential_decay_schedule(init_value=0., peak_value=args.lr, warmup_steps=args.epochs//100,
+    schedule = optax.warmup_exponential_decay_schedule(init_value=0., peak_value=args.lr, warmup_steps=args.epochs//10,
                                                         transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+3)
     optim = optax.chain(optax.clip(args.max_norm), optax.adamw(learning_rate=schedule)) 
     opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))

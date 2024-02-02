@@ -22,7 +22,7 @@ class DenseAtt(eqx.Module):
     mlp: eqx.nn.MLP
     heads: int
     
-    def __init__(self, in_features, heads=1, alpha=0.2):
+    def __init__(self, in_features, heads=6, alpha=0.2):
         super(DenseAtt, self).__init__()
         act = lambda x: jax.nn.leaky_relu(x,alpha)
         self.mlp = eqx.nn.MLP( 2 * in_features, heads, width_size=64, depth=2, activation=act, final_activation=act, key = prng(0))
@@ -47,19 +47,18 @@ class HypLinear(eqx.Module):
     c: float
     linear: eqx.nn.Linear
 
-    def __init__(self, key, manifold, in_features, out_features, c, p, use_bias):
+    def __init__(self, in_features, out_features, key, manifold, c, dropout_rate, use_bias):
         super(HypLinear, self).__init__()
-        self.dropout = dropout(p) 
+        self.dropout = eqx.nn.Dropout(dropout_rate) 
         self.manifold = manifold
         self.c = c
         self.linear = eqx.nn.Linear(in_features, out_features, key=key)
 
 
-    def __call__(self, x, key=prng(0)):
-        drop_weight = self.dropout(self.linear.weight, key=prng(0))  
+    def __call__(self, x, key):
+        drop_weight = self.dropout(self.linear.weight, key=key)
         mv = self.manifold.mobius_matvec(drop_weight, x, self.c)
         res = self.manifold.proj(mv, self.c)
-        #if self.use_bias:
         bias = self.manifold.proj_tan0(self.linear.bias.reshape(1, -1), self.c)
         hyp_bias = self.manifold.expmap0(bias, self.c)
         hyp_bias = self.manifold.proj(hyp_bias, self.c)
@@ -72,29 +71,26 @@ class HypAgg(eqx.Module):
 
     manifold: manifolds.base.Manifold
     c: float
-    p: float
     use_att: bool
     attn: DenseAtt
     edge_conv: eqx.nn.MLP
 
-    def __init__(self, manifold, c, in_features, p, use_att, heads=1, edge_conv=True):
+    def __init__(self, in_features, manifold, c, use_att, heads=6, edge_conv=True):
         super(HypAgg, self).__init__()
-        self.p = p
         self.manifold = manifold
         self.c = c
-        self.p = p
         self.use_att = use_att
         self.attn = DenseAtt(in_features, heads=heads) if use_att else None
         _in = in_features
         self.edge_conv = eqx.nn.MLP(2*_in, _in, width_size=64, depth=2, activation=jax.nn.gelu, key=prng(0)) if edge_conv else None
 
-    def __call__(self, x, adj, w=None, key=prng(0)):
+    def __call__(self, x, adj, key, w=None):
         s,r = adj[0],adj[1]
         n = x.shape[0]
         x = self.manifold.logmap0(x, c=self.c)
         if self.use_att:
             attn = self.attn(x)
-            x_agg = jnp.einsum('kij,jl -> il', attn, x) 
+            x_agg = jnp.einsum('hij,jk -> ik', attn, x) 
         else:
             if self.edge_conv:
                 x = jnp.concatenate([x[r], x[s]-x[r]], axis=-1)
@@ -129,15 +125,15 @@ class HGCNLayer(eqx.Module):
     agg: HypAgg
     hyp_act: HypAct
 
-    def __init__(self, key, manifold, in_features, out_features, c_in, c_out, p, act, use_bias, use_att):
+    def __init__(self, in_features, out_features, key, manifold, c_in, c_out, dropout_rate, act, use_bias, use_att):
         super(HGCNLayer, self).__init__()
-        self.linear = HypLinear(key, manifold, in_features, out_features, c_in, p, use_bias)
-        self.agg = HypAgg(manifold, c_in, out_features, p, use_att)
+        self.linear = HypLinear(in_features, out_features, key, manifold, c_in, dropout_rate, use_bias)
+        self.agg = HypAgg(out_features, manifold, c_in, dropout_rate, use_att)
         self.hyp_act = HypAct(manifold, c_in, c_out, act)
 
-    def __call__(self, x, adj, w=None, key=prng(0)):
+    def __call__(self, x, adj, key, w=None):
         h = self.linear(x, key)
-        h = self.agg(h, adj, w)
+        h = self.agg(h, adj, key, w)
         h = self.hyp_act(h)
         output = h, adj
         return output
@@ -148,13 +144,13 @@ class HNNLayer(eqx.Module):
     linear: HypLinear
     hyp_act: HypAct
 
-    def __init__(self, manifold, in_features, out_features, c=1., p=0., act=jax.nn.silu, use_bias=True):
+    def __init__(self, in_features, out_features, key, manifold, c_in, c_out, dropout_rate, act, use_bias):
         super(HNNLayer, self).__init__()
-        self.linear = HypLinear(manifold, in_features, out_features, c, p, use_bias)
-        self.hyp_act = HypAct(manifold, c, c, act)
+        self.linear = HypLinear(in_features, out_features, key, manifold, c_in, dropout_rate, use_bias)
+        self.hyp_act = HypAct(manifold, c_in, c_out, act)
 
-    def __call__(self, x):
-        h = self.linear(x)
+    def __call__(self, x, key):
+        h = self.linear(x, key)
         h = self.hyp_act(h)
         return h
 

@@ -1,9 +1,12 @@
+from typing import List, Callable
 import numpy as np
 from scipy import linalg, interpolate
 from sklearn import gaussian_process as gp
 
 import jax
 import jax.numpy as jnp
+import jax.random as jr
+from jax_cosmo.scipy.interpolate import InterpolatedUnivariateSpline as spline
 import equinox as eqx
 
 prng = lambda i=0: jax.random.PRNGKey(i)
@@ -32,9 +35,12 @@ class PowerSeries(eqx.Module):
     def __call__(self, xs):
         return jax.numpy.polyval(self.a, xs**self.alpha, unroll=128) 
 
-
-class GRF(eqx.Module):
-    """Gaussian random field (Gaussian process) in 1D."""
+class _GRF(eqx.Module):
+    N: int
+    interp: str
+    x: np.ndarray
+    K: np.ndarray
+    L: np.ndarray
 
     def __init__(self, T=1, kernel="RBF", length_scale=1, N=1000, interp="cubic"):
         self.N = N
@@ -64,9 +70,56 @@ class GRF(eqx.Module):
     def eval_batch(self, features, xs):
         if self.interp == "linear":
             return np.vstack([np.interp(xs, np.ravel(self.x), y).T for y in features])
-        res = map(lambda y: interpolate.interp1d(np.ravel(self.x), y, kind=self.interp, copy=False, assume_sorted=True)(xs).T, features)
-        return np.vstack(list(res))
+        res = map(
+            lambda y: interpolate.interp1d(
+                np.ravel(self.x), y, kind=self.interp, copy=False, assume_sorted=True
+            )(xs).T,
+            features,
+        )
+        return np.vstack(list(res)).astype(np.float32)
 
+
+class GRF(eqx.Module):
+    """Gaussian random field (Gaussian process) in 1D."""
+
+    N: int
+    T: float
+    interp: Callable
+    x: np.ndarray
+    K: np.ndarray
+    L: np.ndarray
+    num_func: int
+
+    def __init__(self, T=1, kernel="RBF", length_scale=1, N=1000, num_func=10, interp="cubic"):
+        self.N = N
+        self.T = T
+        self.interp  = lambda feat: spline(self.x, feat)
+        self.x = np.linspace(0, T, num=N)
+        self.num_func = num_func
+        if kernel == "RBF":
+            K = gp.kernels.RBF(length_scale=length_scale)
+        elif kernel == "AE":
+            K = gp.kernels.Matern(length_scale=length_scale, nu=0.5)
+        elif kernel == "ExpSineSquared":
+            K = gp.kernels.ExpSineSquared(length_scale=length_scale, periodicity=T)
+        self.K = K(self.x)
+        self.L = np.linalg.cholesky(self.K + 1e-13 * np.eye(self.N))
+
+    def field(self, key):
+        u = jr.normal(key, (self.N, self.num_func))
+        return jnp.einsum('ij,jk -> ki', self.L, u)
+
+    def eval_batch(self, feats, x):
+        f = interpolate.interp1d(self.x, feats, kind=self.interp, copy=False, assume_sorted=True)
+        return jax.vmap(f)(x)
+
+    def __call__(self, x, key):
+        func_feats = self.field(key)
+        f = [spline(self.x, ff) for ff in func_feats]
+        func_vals = jnp.array([_f(x) for _f in f]).reshape(x.shape[0],-1)
+        #f = jax.vmap(self.interp)(func_feats)
+        #func_vals = jax.vmap(f)(x)
+        return func_vals
 
 class GRF_KL(eqx.Module):
     """Gaussian random field (Gaussian process) in 1D.
