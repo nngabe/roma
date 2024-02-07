@@ -39,7 +39,7 @@ if __name__ == '__main__':
     args.adj_path = glob.glob(f'../data/adj*{args.path.split("_")[0]}*')[0]
     args.pe_path = pe_path_from(args.adj_path)
 
-    print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n\n')
+    print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n')
     
     args = set_dims(args)    
     pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached_pe)
@@ -111,8 +111,8 @@ if __name__ == '__main__':
     log['test_index'] = idx_test
 
     if args.verbose:
-        print(f'\nx[train] = {x[idx_train].shape}, adj[train] = {edge_index_train.shape}')
-        print(f'x[test]  = {x[idx_test].shape},  adj[test]  = {edge_index_test.shape}')
+        print(f'\n x[train] = {x[idx_train].shape}, adj[train] = {edge_index_train.shape}')
+        print(f' x[test]  = {x[idx_test].shape},  adj[test]  = {edge_index_test.shape}')
         print(f'\n w[data,pde,gpde,ent] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ent:.0e})')
         print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})')
     schedule = optax.warmup_exponential_decay_schedule(init_value=0., peak_value=args.lr, warmup_steps=args.epochs//10,

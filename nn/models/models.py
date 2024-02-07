@@ -322,7 +322,7 @@ class HGCN(GraphNet):
             c_in, c_out = self.curvatures[i], self.curvatures[i + 1]
             in_dim, out_dim = dims[i], dims[i + 1]
             hgc_layers.append( 
-                hyp_layers.HGCNLayer(in_dim, out_dim, key, self.manifold, c_in, c_out, args.dropout, act, args.use_bias, args.use_att, args.use_layer_norm)
+                hyp_layers.HGCNLayer(in_dim, out_dim, key, args, manifold=self.manifold) 
                 )
             lin_layers.append(eqx.nn.Linear(in_dim, out_dim, key=key))
             layer_norms.append(eqx.nn.LayerNorm(out_dim))

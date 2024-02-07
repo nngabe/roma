@@ -78,7 +78,7 @@ class HypAgg(eqx.Module):
     edge_conv: eqx.nn.MLP
     agg_conv: eqx.nn.MLP
 
-    def __init__(self, in_features, manifold, c, use_att, heads=6, edge_conv=True, agg='multi'):
+    def __init__(self, in_features, manifold, c, use_att, heads=6, edge_conv=True, agg='sum'):
         super(HypAgg, self).__init__()
         self.manifold = manifold
         self.c = c
@@ -106,7 +106,10 @@ class HypAgg(eqx.Module):
             # aggregation function. use mean if weighted else use self.agg
             if isinstance(w,jnp.ndarray): 
                 x_s = jnp.einsum('ij,i -> ij', x_s, w)
-                x_agg = jraph.segment_mean(x_s, r, n)
+                if self.agg=='sum': 
+                    x_agg = jraph.segment_sum(x_s, r, n)
+                else: 
+                    x_agg = jraph.segment_mean(x_s, r, n)
             elif self.agg == 'multi':
                 temp = jnp.array([1.,10.])
                 x_softmax = [segment_softmax(t)(x_s, r, n) for t in temp]
@@ -151,12 +154,13 @@ class HGCNLayer(eqx.Module):
     hyp_act: HypAct
     dropout: eqx.nn.Dropout
 
-    def __init__(self, in_features, out_features, key, manifold, c_in, c_out, dropout_rate, act, use_bias, use_att, use_ln):
+    def __init__(self, in_features, out_features,  key, args, manifold, c_in=None, c_out=None): 
         super(HGCNLayer, self).__init__()
-        self.linear = HypLinear(in_features, out_features, key, manifold, c_in, dropout_rate, use_bias, use_ln)
-        self.agg = HypAgg(out_features, manifold, c_in, dropout_rate, use_att)
-        self.hyp_act = HypAct(manifold, c_in, c_out, act)
-        self.dropout = eqx.nn.Dropout(dropout_rate)
+        c_in, c_out = args.c, args.c
+        self.linear = HypLinear(in_features, out_features, key, manifold, args.c, args.dropout, args.use_bias, args.use_layer_norm)
+        self.agg = HypAgg(out_features, manifold, args.c, args.dropout, args.use_att, edge_conv=args.edge_conv, agg=args.agg)
+        self.hyp_act = HypAct(manifold, c_in, c_out, act=jax.nn.gelu)
+        self.dropout = eqx.nn.Dropout(args.dropout)
     def __call__(self, x, adj, key, w=None):
         h = self.linear(x, key)
         h = self.agg(h, adj, key, w)
