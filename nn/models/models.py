@@ -26,70 +26,85 @@ class null(eqx.Module):
 
 class GraphNet(eqx.Module):
     c: float
-    skip: bool
+    res: bool
+    cat: bool
+    norm: bool
     layers: eqx.nn.Sequential
     lin: eqx.nn.Sequential
+    layer_norm: eqx.nn.Sequential
     encode_graph: bool
-    res: bool
     manifold: Optional[manifolds.base.Manifold] = None
     pe_dim: int
     u_dim: int
+    euclidean: bool
 
-    def __init__(self, args):
+    def __init__(self, args, module):
         super(GraphNet, self).__init__()
         self.c = args.c
-        self.skip = args.skip
-        self.res = args.res
+        self.res = bool(args.res) 
+        self.cat = bool(args.cat) if module=='enc' else False
+        self.norm = bool(args.use_layer_norm)
         self.pe_dim = args.pe_dim
         self.u_dim = args.kappa
-
-    def __call__(self, x, adj, key, w=None):
-        if self.res:
-            return self._res(x, adj, key, w)
-        elif self.skip:
-            return self._cat(x, adj, key, w)
-        else:
-            return self._forward(x, adj, key, w)
+        self.euclidean = True if args.manifold=='Euclidean' else False
 
     def exp(self, x):
+        if self.euclidean: 
+            return x
         x = self.manifold.proj_tan0(x, c=self.c)
         x = self.manifold.expmap0(x, c=self.c)
         x = self.manifold.proj(x, c=self.c)
         return x
 
     def log(self, y):
+        if self.euclidean:
+            return y
         y = self.manifold.logmap0(y, self.c)
         y = y * jnp.sqrt(self.c) * 1.4763057
         return y
 
-    def _forward(self, x, adj, key, w):
-        for layer in self.layers:
-            if self.encode_graph:
-                x,_ = layer(x, adj, key, w)
-            else:
-                x = layer(x, key)
-            key = jax.random.split(key)[0]
-        return x 
-
-    def _cat(self, x, adj, key, w):
+    def __call__(self, x, adj, key, w):
+        x_i = [x]
         x = self.exp(x)
-        if self.pe_dim>0: x_i = [x[:,:self.u_dim], x[:,self.u_dim:]]
-        else: x_i = [x]
-        for layer in self.layers:
-            x,_ = layer(x, adj, key, w)
-            x_i.append(x)
-            key = jax.random.split(key)[0]
-        return jnp.concatenate(x_i, axis=1)
-    
-    def _res(self, x, adj, key, w):
-        x = self.exp(x)
-        if self.pe_dim>0: x_i = [x[:,:self.u_dim], x[:,self.u_dim:]]
-        for conv,lin in zip(self.layers,self.lin):
+        for conv,lin,norm in zip(self.layers, self.lin, self.layer_norm):
             h,_ = conv(x, adj, key, w)
-            x = jax.vmap(lin)(self.log(x)) + self.log(h)
+            if self.res:
+                x = jax.vmap(lin)(self.log(x)) + self.log(h)
+            if self.norm:
+                x = jax.vmap(norm)(x)
+            x_i.append(x)
             x = self.exp(x)
             key = jax.random.split(key)[0]
+        if self.cat:
+            return jnp.concatenate(x_i, axis=-1)
+        else:
+            return self.log(x)
+
+class ResNet(eqx.Module):
+    layers: List[eqx.Module]
+    res: bool
+    lin: List[eqx.Module] 
+    def __init__(self, in_dim, out_dim, width, dropout_rate, depth=4, key=prng(), res=True, norm=True):
+        keys = jr.split(key, depth + 2 )
+        self.res = res
+        dims = [in_dim] + depth * [width] + [out_dim]
+        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(self.num_layers+1)]
+        self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers+1) ]
+
+    def __call__(self, x, key):
+
+        for res,layer in zip(self.lin,self.layers):
+            if self.res:
+                f = lambda x: layer(x,key) + res(x)
+            else:
+                f = lambda x: layer(x,key)
+            if len(x.shape)==1:
+                x = f(x)
+            if len(x.shape)==2:
+                x = jax.vmap(f)(x)
+            key = jr.split(key)[0]
         return x
+
 
 class AttentionBlock(eqx.Module):
     layer_norm1: eqx.nn.LayerNorm
@@ -139,6 +154,8 @@ class AttentionBlock(eqx.Module):
         return x
 
 class Transformer(eqx.Module):
+    level_dims: list[int]
+    level_embedding: jnp.ndarray
     positional_embedding: jnp.ndarray
     attention_blocks: list[AttentionBlock]
     dropout: eqx.nn.Dropout
@@ -147,6 +164,8 @@ class Transformer(eqx.Module):
     lin2: eqx.nn.Linear
     num_layers: int
     eps: float
+    pos_emb_var: list[float]
+    level_emb_var: list[float]
 
     def __init__(self, in_dim, out_dim, args, key):
         
@@ -155,24 +174,41 @@ class Transformer(eqx.Module):
         num_heads = args.num_heads
         dropout_rate = args.dropout_branch
         self.num_layers = args.dec_depth 
-
-        self.positional_embedding = jr.normal(keys[0], (args.num_nodes + 1, in_dim))
-        self.attention_blocks = [ AttentionBlock(hidden_dim, hidden_dim, num_heads, dropout_rate, keys[i]) for i in range(self.num_layers)]
+    
+        level_dims = [0] + [args.batch_size] + args.pool_size 
+        self.level_dims = np.array(level_dims).cumsum().tolist()
+        self.level_embedding = jr.normal(keys[0], (len(args.pool_size) + 1, in_dim))
+        self.positional_embedding = jr.normal(keys[1], (args.num_nodes , in_dim))
+        self.attention_blocks = [AttentionBlock(hidden_dim, hidden_dim, num_heads, dropout_rate, keys[i]) for i in range(self.num_layers)]
 
         self.dropout = eqx.nn.Dropout(dropout_rate)
         self.norm1 = eqx.nn.LayerNorm(hidden_dim)
         self.lin1 = eqx.nn.Linear(in_dim, hidden_dim, key=keys[2])
         self.lin2 = eqx.nn.Linear(hidden_dim, out_dim, key=keys[3])
         self.eps = 1e-15
+        self.pos_emb_var = args.pos_emb_var
+        self.level_emb_var = args.level_emb_var
 
     def get_attn_mask(self, x):
+        # filter out padding nodes that have x = [0., ..., 0.] 
         index = jnp.abs(x.sum(1)) > self.eps
         mask = jnp.einsum('i,j -> ij', index, index)
         return mask 
+    
+    def multiscale_embedding(self, x):
+        res = jnp.zeros_like(x)
+        pos_emb_scalers = jnp.ones((self.level_dims[-1],1)).at[:self.level_dims[1]].mul(self.pos_emb_var[0])
+        pos_emb_scalers = pos_emb_scalers.at[self.level_dims[1]:].mul(self.pos_emb_var[1])
+        res = res.at[:].add(self.positional_embedding[:self.level_dims[-1]] * pos_emb_scalers)
+        for i,dim in enumerate(self.level_dims[:-1]):
+            l1,l2 = dim, self.level_dims[i+1]
+            level_emb_scaler = self.level_emb_var[0] ** i
+            res = res.at[l1:l2].add(self.level_embedding[i] * level_emb_scaler)
+        return x
 
     def __call__(self, x, key):
         mask = self.get_attn_mask(x) 
-        x += self.positional_embedding[:x.shape[0]]  # Slice to the same length as x, as the positional embedding may be longer.
+        x += self.multiscale_embedding(x)
         dropout_key, *attention_keys = jr.split(key, num=self.num_layers + 1)
         x = jax.vmap(self.lin1)(x)
         x = self.dropout(x, key=dropout_key)
@@ -197,8 +233,7 @@ class MLP(eqx.Module):
         dropout_rate = args.dropout_trunk
         dims = [in_dim] + self.num_layers * [args.dec_width] + [out_dim]
         self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(self.num_layers+1)]
-        lin = lambda dim1, dim2, key: eqx.nn.Linear(dim1, dim2, key=key)
-        self.lin = [ lin(dims[i], dims[i+1], keys[i]) for i in range(self.num_layers+1) ]
+        self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers+1) ]
 
     def __call__(self, x, key):
 
@@ -230,7 +265,7 @@ class DeepOnet(eqx.Module):
     def __init__(self, args, module): 
         super(DeepOnet, self).__init__()
         self.func_space = getattr(lib.function_spaces, args.func_space)(num_func=args.num_func)
-        dims, act, _ = get_dim_act(args,module)
+        args, dims, act, _ = get_dim_act(args, module)
         self.x_dim = args.x_dim
         self.tx_dim = args.time_dim + args.x_dim 
         self.u_dim = args.kappa
@@ -275,26 +310,26 @@ class HGCN(GraphNet):
     curvatures: jax.numpy.ndarray 
     
     def __init__(self, args, module):
-        super(HGCN, self).__init__(args)
+        super(HGCN, self).__init__(args, module)
         self.manifold = getattr(manifolds, args.manifold)()
-        dims, act, self.curvatures = get_dim_act(args,module)
+        args, dims, act, self.curvatures = get_dim_act(args,module)
         self.curvatures.append(args.c)
-        use_att = args.use_att_enc if module=='enc' else args.use_att_pool
         hgc_layers = []
         lin_layers = []
+        layer_norms = []
         key = prng()
         for i in range(len(dims) - 1):
             c_in, c_out = self.curvatures[i], self.curvatures[i + 1]
             in_dim, out_dim = dims[i], dims[i + 1]
             hgc_layers.append( 
-                hyp_layers.HGCNLayer(in_dim, out_dim, key, self.manifold, c_in, c_out, args.dropout, act, args.bias, use_att))
-            if in_dim==out_dim:
-                lin_layers.append( lambda x: x)
-            else:
-                lin_layers.append( eqx.nn.Linear(in_dim, out_dim, key=key))
+                hyp_layers.HGCNLayer(in_dim, out_dim, key, self.manifold, c_in, c_out, args.dropout, act, args.use_bias, args.use_att, args.use_layer_norm)
+                )
+            lin_layers.append(eqx.nn.Linear(in_dim, out_dim, key=key))
+            layer_norms.append(eqx.nn.LayerNorm(out_dim))
             key = jax.random.split(key)[0]
         self.layers = nn.Sequential(hgc_layers)
         self.lin = nn.Sequential(lin_layers)
+        self.layer_norm = nn.Sequential(layer_norms)
         self.encode_graph = True
 
     def __call__(self, x, adj, key, w=None):

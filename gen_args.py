@@ -6,7 +6,7 @@ OPTS = []
 
 if batch == '':
     OUT_FILE = 'args/base.txt'
-    opts = {'manifold': ['PoincareBall'], 'length_scale':[.1,.5,1.]}
+    opts = {'manifold': ['PoincareBall'], 'length_scale':[1.,1.5,2.]}
     OPTS.append(opts)
     opts = {'manifold': ['Euclidean','PoincareBall'], 'w_pde':[1e-20, 1e+0], 'w_gpde': [1e-20, 1e+3] }
     OPTS.append(opts)

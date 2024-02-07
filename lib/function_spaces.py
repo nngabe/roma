@@ -35,49 +35,6 @@ class PowerSeries(eqx.Module):
     def __call__(self, xs):
         return jax.numpy.polyval(self.a, xs**self.alpha, unroll=128) 
 
-class _GRF(eqx.Module):
-    N: int
-    interp: str
-    x: np.ndarray
-    K: np.ndarray
-    L: np.ndarray
-
-    def __init__(self, T=1, kernel="RBF", length_scale=1, N=1000, interp="cubic"):
-        self.N = N
-        self.interp = interp
-        self.x = np.linspace(0, T, num=N)[:, None]
-        if kernel == "RBF":
-            K = gp.kernels.RBF(length_scale=length_scale)
-        elif kernel == "AE":
-            K = gp.kernels.Matern(length_scale=length_scale, nu=0.5)
-        elif kernel == "ExpSineSquared":
-            K = gp.kernels.ExpSineSquared(length_scale=length_scale, periodicity=T)
-        self.K = K(self.x)
-        self.L = np.linalg.cholesky(self.K + 1e-13 * np.eye(self.N))
-
-    def random(self, size):
-        u = np.random.randn(self.N, size)
-        return np.dot(self.L, u).T
-
-    def eval_one(self, feature, x):
-        if self.interp == "linear":
-            return np.interp(x, np.ravel(self.x), feature)
-        f = interpolate.interp1d(
-            np.ravel(self.x), feature, kind=self.interp, copy=False, assume_sorted=True
-        )
-        return f(x)
-
-    def eval_batch(self, features, xs):
-        if self.interp == "linear":
-            return np.vstack([np.interp(xs, np.ravel(self.x), y).T for y in features])
-        res = map(
-            lambda y: interpolate.interp1d(
-                np.ravel(self.x), y, kind=self.interp, copy=False, assume_sorted=True
-            )(xs).T,
-            features,
-        )
-        return np.vstack(list(res)).astype(np.float32)
-
 
 class GRF(eqx.Module):
     """Gaussian random field (Gaussian process) in 1D."""
@@ -109,16 +66,10 @@ class GRF(eqx.Module):
         u = jr.normal(key, (self.N, self.num_func))
         return jnp.einsum('ij,jk -> ki', self.L, u)
 
-    def eval_batch(self, feats, x):
-        f = interpolate.interp1d(self.x, feats, kind=self.interp, copy=False, assume_sorted=True)
-        return jax.vmap(f)(x)
-
     def __call__(self, x, key):
         func_feats = self.field(key)
         f = [spline(self.x, ff) for ff in func_feats]
         func_vals = jnp.array([_f(x) for _f in f]).reshape(x.shape[0],-1)
-        #f = jax.vmap(self.interp)(func_feats)
-        #func_vals = jax.vmap(f)(x)
         return func_vals
 
 class GRF_KL(eqx.Module):

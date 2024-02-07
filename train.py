@@ -39,7 +39,6 @@ if __name__ == '__main__':
     args.adj_path = glob.glob(f'../data/adj*{args.path.split("_")[0]}*')[0]
     args.pe_path = pe_path_from(args.adj_path)
 
-    print(f'\n w[data,pde,gpde,ent] = {args.w_data:.0e},{args.w_pde:.0e},{args.w_gpde:.0e},{args.w_ent:.0e}')
     print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n\n')
     
     args = set_dims(args)    
@@ -65,8 +64,9 @@ if __name__ == '__main__':
     data = Data(edge_index=edge_index, idx=idx, x=x, pe=pe)
     loader = GraphSAINTRandomWalkSampler(data, batch_size=x.shape[0]//args.batch_down_sample, walk_length=args.batch_walk_len)
     batch_test, _ = get_next_batch(loader, args, data)
-    x_test, adj_test, pe_test = pad_graph(x=batch_test.x.numpy(), adj=batch_test.edge_index.numpy(), pe=batch_test.pe.numpy())
+    x_test, adj_test, pe_test = pad_graph(x=batch_test.x.numpy(), adj=batch_test.edge_index.numpy(), pe=batch_test.pe.numpy(), x_size=args.batch_size)
     idx_test = batch_test.idx
+    edge_index_test = batch_test.edge_index 
 
     # training graph
     mask_train = torch.ones(n, dtype=torch.int)
@@ -80,9 +80,8 @@ if __name__ == '__main__':
     # initialize batch loader from training graph
     loader = GraphSAINTRandomWalkSampler(data_train, batch_size=data_train.idx.shape[0]//args.batch_down_sample, walk_length=args.batch_walk_len)
     batch, loader = get_next_batch(loader, args, data_train)
-    x_batch, adj_batch, pe_batch = pad_graph(batch.x.numpy(), batch.edge_index.numpy(), batch.pe.numpy())
+    x_batch, adj_batch, pe_batch = pad_graph(x=batch.x.numpy(), adj=batch.edge_index.numpy(), pe=batch.pe.numpy(), x_size=args.batch_size)
 
-    args.pool_dims[-1] = 128 #sup_power_of_two(2 * n//args.pool_red)
     if args.log_path:
         model, args = utils.read_model(args)
     else:
@@ -90,22 +89,22 @@ if __name__ == '__main__':
         model = utils.init_he(model, prng(123))
 
     if args.verbose: 
-        print(f'\nMODULE: MODEL[DIMS](curv)')
-        print(f' encoder: {args.encoder}{args.enc_dims}{args.manifold[:3]}(c={args.c})')
-        print(f' decoder: {args.decoder}{args.dec_dims}')
-        print(f' pde: {args.pde}/{args.decoder}{args.pde_dims}')
-        print(f' func_space: {args.func_space}(l={args.length_scale})')
-        print(f' branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
-        print(' pool:')
+        print(f'\n MODULE: MODEL[DIMS](curv)')
+        print(f'  encoder: {args.encoder}{args.enc_dims}{args.manifold[:3]}(c={args.c})')
+        print(f'  decoder: {args.decoder}{args.dec_dims}')
+        print(f'  pde: {args.pde}/{args.decoder}{args.pde_dims}')
+        print(f'  func_space: {args.func_space}(l={args.length_scale})')
+        print(f'  branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
+        print(f'  pool:')
         for i in model.pool.pools.keys(): 
             pdims = args.pool_dims
             pdims[-1] = model.pool_dims[i] #sup_power_of_two(n // args.batch_red) // (args.pool_red)**(i+1)
             print(f'   pool_{i}: {args.pool}{pdims}')
-        print(' embed:')
+        print(f'  embed:')
         for i in model.pool.pools.keys(): 
             print(f'   embed_{i}: {args.pool}{args.embed_dims}')
-        print(f' time_enc: linlog[{args.time_dim}]\n')
-    
+        print(f' time_enc: fourier[{args.time_dim}]\n')
+     
     log = {}
     log['args'] = vars(copy.copy(args))
     log['train_index'] = idx_train
@@ -113,8 +112,9 @@ if __name__ == '__main__':
 
     if args.verbose:
         print(f'\nx[train] = {x[idx_train].shape}, adj[train] = {edge_index_train.shape}')
-        print(f'x[test]  = {x[idx_test].shape},  adj[test]  = {adj_test.shape}')
-    
+        print(f'x[test]  = {x[idx_test].shape},  adj[test]  = {edge_index_test.shape}')
+        print(f'\n w[data,pde,gpde,ent] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ent:.0e})')
+        print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})')
     schedule = optax.warmup_exponential_decay_schedule(init_value=0., peak_value=args.lr, warmup_steps=args.epochs//10,
                                                         transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+3)
     optim = optax.chain(optax.clip(args.max_norm), optax.adamw(learning_rate=schedule)) 
@@ -138,9 +138,11 @@ if __name__ == '__main__':
     key = jax.random.PRNGKey(0)
     model = eqx.tree_inference(model, value=False)
     for i in range(args.epochs):
-       
-        batch, loader = get_next_batch(loader, args, data_train)
-        x, adj, pe = pad_graph(batch.x.numpy(), batch.edge_index.numpy(), batch.pe.numpy())
+      
+        if i % args.batch_freq == 0: 
+            batch, loader = get_next_batch(loader, args, data_train)
+        
+        x, adj, pe = pad_graph(batch.x.numpy(), batch.edge_index.numpy(), batch.pe.numpy(), x_size=args.batch_size)
         key = jax.random.split(key)[0]
         ti = jax.random.randint(key, (n, 1), args.kappa, T-args.kappa).astype(jnp.float32)
         idx = ti.astype(int)

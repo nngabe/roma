@@ -33,6 +33,7 @@ def get_dim_act(args, module):
         args.num_layers = len(args.enc_dims)
         dims = args.enc_dims
         args.skip = 0
+        args.use_att = args.use_att_enc
     elif module == 'dec': 
         args.num_layers = len(args.dec_dims)
         dims = args.dec_dims
@@ -41,17 +42,19 @@ def get_dim_act(args, module):
         dims = args.pde_dims
     elif module == 'pool': 
         args.res = 1
+        args.cat = 0
         args.num_layers = len(args.pool_dims)
         dims = args.pool_dims
         args.pool_dims[-1] = max(args.pool_dims[-1]//args.pool_red, 1)
         args.use_att = args.use_att_pool
     elif module == 'embed': 
         args.res = 1
+        args.cat = 0
         dims = args.embed_dims
+        args.use_att = args.use_att_pool
     else:
         print('All layers already init-ed! Define additional layers if needed.')
         raise
-
     
     # for now curvatures are static, change list -> jax.ndarray to make them learnable
     if args.c is None:
@@ -59,7 +62,7 @@ def get_dim_act(args, module):
     else:
         curvatures = [args.c for _ in range(args.num_layers)]
 
-    return dims, act, curvatures
+    return args, dims, act, curvatures
 
 class Linear(eqx.Module): 
     linear: eqx.nn.Linear

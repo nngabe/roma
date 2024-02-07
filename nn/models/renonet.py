@@ -37,15 +37,16 @@ class RenONet(eqx.Module):
     B: jnp.ndarray
     fe: bool
     eta: np.float32
+    euclidean: bool
 
     def __init__(self, args):
         super(RenONet, self).__init__()
-        self.kappa = 0 if args.res else args.kappa
+        self.kappa = args.kappa 
         self.batch_size = args.batch_size
         self.encoder = getattr(models, args.encoder)(args, module='enc')
         self.decoder = getattr(models, args.decoder)(args, module='dec')
         self.pde = getattr(aux, args.pde)(args, module='pde', parent=self)
-        self.pool = aux.pooling(args, module='pool')
+        self.pool = getattr(aux, 'pooling')(args, module='pool')
         self.manifold = getattr(manifolds, args.manifold)()
         self.c = args.c
         self.w_data = args.w_data
@@ -56,7 +57,7 @@ class RenONet(eqx.Module):
         self.v_max = args.v_max
         self.x_dim = args.x_dim
         self.t_dim = args.time_dim
-        self.pool_dims = [self.pool.pools[i].layers[-1].linear.linear.bias.shape[0] for i in self.pool.pools]
+        self.pool_dims = args.pool_size #[self.pool.pools[i].layers[-1].linear.linear.bias.shape[0] for i in self.pool.pools]
         self.ln_pool = [eqx.nn.LayerNorm(dim) for dim in self.pool_dims]
         self.scalers = {'t_lin': 10. ** jnp.arange(2, self.t_dim, 1, dtype=jnp.float32),
                         't_log': 10. ** jnp.arange(-2, self.t_dim, 1, dtype=jnp.float32),
@@ -66,6 +67,7 @@ class RenONet(eqx.Module):
         self.B = 1. * jr.normal(prng(0), (args.kappa, args.f_dim))
         self.fe = args.fe
         self.eta = .01
+        self.euclidean = True if args.manifold=='Euclidean' else False 
 
     def time_encode(self, t):
         if len(t.shape)>1:
@@ -83,12 +85,16 @@ class RenONet(eqx.Module):
         return t
 
     def exp(self, x):
+        if self.euclidean:
+            return x
         x = self.manifold.proj_tan0(x, c=self.c)
         x = self.manifold.expmap0(x, c=self.c)
         x = self.manifold.proj(x, c=self.c)
         return x
 
     def log(self, y):
+        if self.euclidean:
+            return y
         y = self.manifold.logmap0(y, self.c)
         y = y * jnp.sqrt(self.c) * 1.4763057
         return y
@@ -102,7 +108,6 @@ class RenONet(eqx.Module):
     def encode(self, x0, adj, key):
         x = self.fourier_enc(x0) if self.fe else x0
         z = self.encoder(x, adj, key)
-        z = self.log(z)
         return z
 
     def embed_pool(self, z, adj, w, i, key):
