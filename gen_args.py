@@ -10,9 +10,17 @@ if batch == '':
     OPTS.append(opts)
     opts = {'manifold': ['Euclidean','PoincareBall'], 'w_pde':[1e-20, 1e+0], 'w_gpde': [1e-20, 1e+3] }
     OPTS.append(opts)
-elif batch == 'var':
-    OUT_FILE = 'args/var.txt'
-    opts = {'v_scaler': [1e-0, 1e-1, 1e-2, 1e-3, 1e-4], 'path': ['993_c1']}
+elif batch == 'agg':
+    OUT_FILE = 'args/agg.txt'
+    opts = {'agg': ['multi', 'mean', 'sum']}
+    OPTS.append(opts)
+    opts = {'manifold': ['Euclidean','PoincareBall']}
+    OPTS.append(opts)
+    opts = {'w_pde':[1e-20, 1e+0], 'w_gpde': [1e-20, 1e+3]}
+    OPTS.append(opts)
+elif batch == 'adam':
+    OUT_FILE = 'args/adam.txt'
+    opts = {'b1': [.9,.95,.999], 'weight_decay': [1e-3, 2e-3], 'epochs': [50000]} 
 else:
     print('argv[1] not recognized!')
     raise

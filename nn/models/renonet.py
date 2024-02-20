@@ -64,7 +64,7 @@ class RenONet(eqx.Module):
                         't_cos': 10. **jnp.linspace(-5, 5, 1+self.t_dim//2, dtype=jnp.float32),
                        }
         self.beta = args.beta 
-        self.B = 1. * jr.normal(prng(0), (args.kappa, args.f_dim))
+        self.B = 1. * jr.normal(prng(0), (1, self.t_dim//2))
         self.fe = args.fe
         self.eta = .01
         self.euclidean = True if args.manifold=='Euclidean' else False 
@@ -78,9 +78,8 @@ class RenONet(eqx.Module):
         
         assert self.t_dim % 2 == 0
         
-        t = t / self.scalers['t_cos']
-        t = t[:self.t_dim//2]
-        t_cos, t_sin = jnp.sin(t), jnp.cos(t)
+        Bt = t * self.B  
+        t_cos, t_sin = jnp.sin(Bt), jnp.cos(Bt)
         t = jnp.concatenate([t_cos, t_sin])
         return t
 

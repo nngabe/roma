@@ -49,13 +49,13 @@ class HypLinear(eqx.Module):
     linear: eqx.nn.Linear
     layer_norm: eqx.nn.LayerNorm
 
-    def __init__(self, in_features, out_features, key, manifold, c, dropout_rate, use_bias, use_ln):
+    def __init__(self, in_features, out_features, manifold, key, args):
         super(HypLinear, self).__init__()
-        self.dropout = eqx.nn.Dropout(dropout_rate) 
+        self.dropout = eqx.nn.Dropout(args.dropout) 
         self.manifold = manifold
-        self.c = c
+        self.c = args.c
         self.linear = eqx.nn.Linear(in_features, out_features, key=key)
-        self.layer_norm = eqx.nn.LayerNorm(out_features) if use_ln else (lambda x: x)
+        self.layer_norm = eqx.nn.LayerNorm(out_features) if args.use_layer_norm else (lambda x: x)
 
     def __call__(self, x, key):
         mv = self.manifold.mobius_matvec(self.linear.weight, x, self.c)
@@ -77,22 +77,24 @@ class HypAgg(eqx.Module):
     attn: DenseAtt
     edge_conv: eqx.nn.MLP
     agg_conv: eqx.nn.MLP
+    dropout: Callable
 
-    def __init__(self, in_features, manifold, c, use_att, heads=6, edge_conv=True, agg='sum'):
+    def __init__(self, in_features, manifold, args, edge_conv=True, agg='sum'):
         super(HypAgg, self).__init__()
         self.manifold = manifold
-        self.c = c
-        self.agg = agg
-        self.use_att = use_att
-        self.attn = DenseAtt(in_features, heads=heads) if use_att else None
-        _in = in_features
+        self.c = args.c
+        self.agg = args.agg
+        self.use_att = args.use_att
+        self.attn = DenseAtt(in_features, heads=args.num_gat_heads) if self.use_att else None
         self.edge_conv = eqx.nn.MLP(3 * in_features, in_features, width_size=2*in_features, depth=2, activation=jax.nn.gelu, key=prng(0)) if edge_conv else None
         self.agg_conv = eqx.nn.MLP(4 * in_features, in_features, width_size=2*in_features, depth=2, activation=jax.nn.gelu, key=prng(1))
+        self.dropout = eqx.nn.Dropout(args.dropout)
 
     def __call__(self, x, adj, key, w=None):
         s,r = adj[0],adj[1]
         n = x.shape[0]
         x = self.manifold.logmap0(x, c=self.c)
+        x = self.dropout(x, key=key)
         if self.use_att:
             attn = self.attn(x)
             x_agg = jnp.einsum('hij,jk -> ik', attn, x) 
@@ -109,7 +111,7 @@ class HypAgg(eqx.Module):
                 if self.agg=='sum': 
                     x_agg = jraph.segment_sum(x_s, r, n)
                 else: 
-                    x_agg = jraph.segment_mean(x_s, r, n)
+                    x_agg = jraph.segment_sum(x_s, r, n)
             elif self.agg == 'multi':
                 temp = jnp.array([1.,10.])
                 x_softmax = [segment_softmax(t)(x_s, r, n) for t in temp]
@@ -135,16 +137,19 @@ class HypAct(eqx.Module):
     c_in: float
     c_out: float
     act: Callable
+    dropout: Callable
 
-    def __init__(self, manifold, c_in, c_out, act):
+    def __init__(self, manifold, c_in, c_out, act, dropout_rate):
         super(HypAct, self).__init__()
         self.manifold = manifold
         self.c_in = c_in
         self.c_out = c_out
         self.act = act
+        self.dropout = eqx.nn.Dropout(dropout_rate) 
 
-    def __call__(self, x):
+    def __call__(self, x, key):
         xt = self.act(self.manifold.logmap0(x, c=self.c_in))
+        #xt = self.dropout(xt, key=key)
         xt = self.manifold.proj_tan0(xt, c=self.c_out)
         return self.manifold.proj(self.manifold.expmap0(xt, c=self.c_out), c=self.c_out)
 
@@ -152,20 +157,18 @@ class HGCNLayer(eqx.Module):
     linear: HypLinear
     agg: HypAgg
     hyp_act: HypAct
-    dropout: eqx.nn.Dropout
 
     def __init__(self, in_features, out_features,  key, args, manifold, c_in=None, c_out=None): 
         super(HGCNLayer, self).__init__()
         c_in, c_out = args.c, args.c
-        self.linear = HypLinear(in_features, out_features, key, manifold, args.c, args.dropout, args.use_bias, args.use_layer_norm)
-        self.agg = HypAgg(out_features, manifold, args.c, args.dropout, args.use_att, edge_conv=args.edge_conv, agg=args.agg)
-        self.hyp_act = HypAct(manifold, c_in, c_out, act=jax.nn.gelu)
-        self.dropout = eqx.nn.Dropout(args.dropout)
+        self.linear = HypLinear(in_features, out_features, manifold, key, args) 
+        self.agg = HypAgg(out_features, manifold, args, edge_conv=args.edge_conv, agg=args.agg)
+        self.hyp_act = HypAct(manifold, c_in, c_out, act=jax.nn.gelu, dropout_rate=args.dropout)
+
     def __call__(self, x, adj, key, w=None):
         h = self.linear(x, key)
         h = self.agg(h, adj, key, w)
-        h = self.hyp_act(h)
-        h = self.dropout(h)
+        h = self.hyp_act(h, key)
         output = h, adj
         return output
 
@@ -182,6 +185,6 @@ class HNNLayer(eqx.Module):
 
     def __call__(self, x, key):
         h = self.linear(x, key)
-        h = self.hyp_act(h)
+        h = self.hyp_act(h, key)
         return h
 

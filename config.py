@@ -9,8 +9,11 @@ config_args = {
         'dropout': (0.0, 'dropout probability'),
         'dropout_branch': (0.05, 'dropout probability in the branch net'),
         'dropout_trunk': (0.05, 'dropout probability in the trunk net'),
-        'epochs': (20000, 'number of epochs to train for'),
+        'epochs': (100000, 'number of epochs to train for'),
+        'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
+        'b1': (.9, 'coefficient for first moment in adam'),
+        'b2': (.999, 'coefficient for first moment in adam'),
         'weight_decay': (1e-3, 'l2 regularization strength'),
         'beta': (0.99, 'moving average coefficient for SLAW'),
         'log_freq': (50, 'how often to compute print train/val metrics (in epochs)'),
@@ -19,7 +22,7 @@ config_args = {
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
         'num_col': (5, 'number of colocation points in the time domain'),
-        'batch_size': (192, 'number of nodes in test and batch graphs'),
+        'batch_size': (216, 'number of nodes in test and batch graphs'),
         'batch_down_sample': (1, 'factor to down sample training set.'),
         'batch_walk_len': (3, 'length of GraphSAINT sampler random walks.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
@@ -42,7 +45,7 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
-        'w_ent': (1e-2, 'weight for assignment matrix entropy loss.'),
+        'w_ent': (2e-2, 'weight for assignment matrix entropy loss.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
@@ -79,7 +82,7 @@ config_args = {
         'p_basis': (100, 'size of DeepOnet basis'),
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
-        'enc_width': (96, 'dimensions of encoder layers'),
+        'enc_width': (64, 'dimensions of encoder layers'),
         'dec_width': (640,'dimensions of decoder layers'),
         'pde_width': (640, 'dimensions of each pde layers'),
         'pool_width': (256, 'dimensions of each pde layers'),
@@ -97,7 +100,7 @@ config_args = {
         'num_heads': (8, 'number of heads in transformer blocks.'),
         'trunk_res': (True, 'use residual connections in trunk net.'),
         'trunk_norm': (True, 'use layer norm in trunk net.'),
-        'pos_emb_var': ([1/8, 1/2], 'variance of transformer positional embedding at l=0 and l>0, respectively'),
+        'pos_emb_var': ([1/8, 1.], 'variance of transformer positional embedding at l=0 and l>0, respectively'),
         'level_emb_var': ([1.], 'variance of transformer level embedding'),
          
         # graph encoder params
@@ -116,7 +119,7 @@ config_args = {
         'local_agg': (1, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
-        'path': ('t1706040610','snippet from which to infer data path'),
+        'path': ('t170777797','snippet from which to infer data path'),
         'log_path': (None, 'snippet from which to infer log/model path.'),
     }
 }

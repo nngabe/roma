@@ -33,10 +33,11 @@ from lib.positional_encoding import pe_path_from, pos_enc
 #jax.config.update("jax_enable_x64", True)
 prng = lambda i=0: jax.random.PRNGKey(i)
 
+
 if __name__ == '__main__':
     args = parser.parse_args()
-    args.data_path = glob.glob(f'../data/x*{args.path}*')[0]
-    args.adj_path = glob.glob(f'../data/adj*{args.path.split("_")[0]}*')[0]
+    args.data_path = glob.glob(f'../data/x*{args.path}*')[-1]
+    args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*')[0]
     args.pe_path = pe_path_from(args.adj_path)
 
     print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n')
@@ -48,7 +49,7 @@ if __name__ == '__main__':
     adj = A if A.shape[0]==2 else np.where(A)
     edge_index = torch.tensor(adj,dtype=torch.long)
     edge_index, _ = add_self_loops(edge_index)
-    x = pd.read_csv(args.data_path, index_col=0).dropna()
+    x = pd.read_csv(args.data_path, index_col=0).dropna().T
     x = torch.tensor(x.to_numpy())
     x = (x - x.min())/(x.max() - x.min())
     pe = torch.tensor(pe)
@@ -117,7 +118,10 @@ if __name__ == '__main__':
         print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})')
     schedule = optax.warmup_exponential_decay_schedule(init_value=0., peak_value=args.lr, warmup_steps=args.epochs//10,
                                                         transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+3)
-    optim = optax.chain(optax.clip(args.max_norm), optax.adamw(learning_rate=schedule)) 
+
+    params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2}
+    optimizer = getattr(optax, args.optim)(**params)
+    optim = optax.chain(optax.clip(args.max_norm), optimizer)
     opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))
 
     @jax.jit
