@@ -43,7 +43,7 @@ if __name__ == '__main__':
     print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n')
     
     args = set_dims(args)    
-    pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached_pe)
+    pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached_pe, device='cuda') 
     
     A = pd.read_csv(args.adj_path, index_col=0).to_numpy()
     adj = A if A.shape[0]==2 else np.where(A)
@@ -55,7 +55,6 @@ if __name__ == '__main__':
     pe = torch.tensor(pe)
     n,T = x.shape
 
-
     # split training and test sets via torch geometric data loaders:
     # i.e. datatypes are torch.tensor -> numpy.array (-> jax.Array during training)
     torch.manual_seed(0)
@@ -63,7 +62,7 @@ if __name__ == '__main__':
     # test set
     idx=torch.arange(x.shape[0]).reshape(-1,1) 
     data = Data(edge_index=edge_index, idx=idx, x=x, pe=pe)
-    loader = GraphSAINTRandomWalkSampler(data, batch_size=x.shape[0]//args.batch_down_sample, walk_length=args.batch_walk_len)
+    loader = GraphSAINTRandomWalkSampler(data, batch_size=args.sampler_batch_size, walk_length=args.batch_walk_len)
     batch_test, _ = get_next_batch(loader, args, data)
     x_test, adj_test, pe_test = pad_graph(x=batch_test.x.numpy(), adj=batch_test.edge_index.numpy(), pe=batch_test.pe.numpy(), x_size=args.batch_size)
     idx_test = batch_test.idx
@@ -79,7 +78,7 @@ if __name__ == '__main__':
     data_train = Data(edge_index=edge_index_train, idx=idx, x=x[idx_train], pe=pe[idx_train])
     
     # initialize batch loader from training graph
-    loader = GraphSAINTRandomWalkSampler(data_train, batch_size=data_train.idx.shape[0]//args.batch_down_sample, walk_length=args.batch_walk_len)
+    loader = GraphSAINTRandomWalkSampler(data_train, batch_size=args.sampler_batch_size, walk_length=args.batch_walk_len)
     batch, loader = get_next_batch(loader, args, data_train)
     x_batch, adj_batch, pe_batch = pad_graph(x=batch.x.numpy(), adj=batch.edge_index.numpy(), pe=batch.pe.numpy(), x_size=args.batch_size)
 
@@ -116,7 +115,7 @@ if __name__ == '__main__':
         print(f' x[test]  = {x[idx_test].shape},  adj[test]  = {edge_index_test.shape}')
         print(f'\n w[data,pde,gpde,ent] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ent:.0e})')
         print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})')
-    schedule = optax.warmup_exponential_decay_schedule(init_value=0., peak_value=args.lr, warmup_steps=args.epochs//10,
+    schedule = optax.warmup_exponential_decay_schedule(init_value=0., peak_value=args.lr, warmup_steps=args.epochs//2,
                                                         transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+3)
 
     params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2}

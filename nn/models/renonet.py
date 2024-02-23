@@ -32,9 +32,9 @@ class RenONet(eqx.Module):
     ln_pool: List[eqx.nn.LayerNorm]
     kappa: int
     batch_size: int
-    scalers: Dict[str, jnp.ndarray]
+    scalers: Dict[str, jnp.ndarray] = eqx.field(static=True)
     beta: np.float32
-    B: jnp.ndarray
+    B: jnp.ndarray = eqx.field(static=True)
     fe: bool
     eta: np.float32
     euclidean: bool
@@ -59,12 +59,9 @@ class RenONet(eqx.Module):
         self.t_dim = args.time_dim
         self.pool_dims = args.pool_size #[self.pool.pools[i].layers[-1].linear.linear.bias.shape[0] for i in self.pool.pools]
         self.ln_pool = [eqx.nn.LayerNorm(dim) for dim in self.pool_dims]
-        self.scalers = {'t_lin': 10. ** jnp.arange(2, self.t_dim, 1, dtype=jnp.float32),
-                        't_log': 10. ** jnp.arange(-2, self.t_dim, 1, dtype=jnp.float32),
-                        't_cos': 10. **jnp.linspace(-5, 5, 1+self.t_dim//2, dtype=jnp.float32),
-                       }
+        self.scalers = {'t': .01}
         self.beta = args.beta 
-        self.B = 1. * jr.normal(prng(0), (1, self.t_dim//2))
+        self.B = self.scalers['t'] * jr.normal(prng(0), (1, self.t_dim//2))
         self.fe = args.fe
         self.eta = .01
         self.euclidean = True if args.manifold=='Euclidean' else False 
@@ -80,7 +77,7 @@ class RenONet(eqx.Module):
         
         Bt = t * self.B  
         t_cos, t_sin = jnp.sin(Bt), jnp.cos(Bt)
-        t = jnp.concatenate([t_cos, t_sin])
+        t = jnp.concatenate([t_cos, t_sin], axis=-1).flatten()
         return t
 
     def exp(self, x):

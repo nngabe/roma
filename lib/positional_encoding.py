@@ -1,6 +1,7 @@
 from typing import Any, Optional
 import os
 import sys
+import time
 import numpy as np
 import pandas as pd
 
@@ -18,6 +19,18 @@ from torch_geometric.utils import (
 from torch_geometric.utils.loop import maybe_num_nodes
 from torch_geometric.nn import Node2Vec
 
+from torch_geometric.utils import (
+    get_laplacian,
+    get_self_loop_attr,
+    is_torch_sparse_tensor,
+    scatter,
+    to_edge_index,
+    to_scipy_sparse_matrix,
+    to_torch_coo_tensor,
+    to_torch_csr_tensor,
+)
+
+
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -28,7 +41,7 @@ def node2vec(data, dim=128, device='cpu'):
                      num_negative_samples=1, p=1, q=1, sparse=True).to(device)
 
     loader = model.loader(batch_size=dim, shuffle=True, num_workers=os.cpu_count())
-    optimizer = torch.optim.SparseAdam(list(model.parameters()), lr=0.01)
+    optimizer = torch.optim.SparseAdam(list(model.parameters()), lr=0.005)
 
     def train():
         model.train()
@@ -50,7 +63,7 @@ def node2vec(data, dim=128, device='cpu'):
                          max_iter=150)
         return acc
 
-    for epoch in range(51):
+    for epoch in range(41):
         loss = train()
         #acc = test()
         if epoch%10==0: print(f'  Epoch: {epoch:02d}, Loss: {loss:.4f}') 
@@ -204,34 +217,44 @@ class AddRandomWalkPE(BaseTransform):
         self,
         walk_length: int,
         attr_name: Optional[str] = 'random_walk_pe',
-    ):
+    ) -> None:
         self.walk_length = walk_length
         self.attr_name = attr_name
 
-    
-    def __call__(self, data: Data) -> Data:
-        num_nodes = data.num_nodes
-        edge_index, edge_weight = data.edge_index, data.edge_weight
+    def forward(self, data: Data) -> Data:
+        assert data.edge_index is not None
+        row, col = data.edge_index
+        N = data.num_nodes
+        assert N is not None
 
-        adj = SparseTensor.from_edge_index(edge_index, edge_weight,
-                                           sparse_sizes=(num_nodes, num_nodes))
+        if data.edge_weight is None:
+            value = torch.ones(data.num_edges, device=row.device)
+        else:
+            value = data.edge_weight
+        value = scatter(value, row, dim_size=N, reduce='sum').clamp(min=1)[row]
+        value = 1.0 / value
 
-        # Compute D^{-1} A:
-        deg_inv = 1.0 / adj.sum(dim=1)
-        deg_inv[deg_inv == float('inf')] = 0
-        adj = adj * deg_inv.view(-1, 1)
+        if N <= 2_000:  # Dense code path for faster computation:
+            adj = torch.zeros((N, N), device=row.device)
+            adj[row, col] = value
+            loop_index = torch.arange(N, device=row.device)
+        adj = to_torch_csr_tensor(data.edge_index, value, size=data.size())
+
+        def get_pe(out: Tensor) -> Tensor:
+            if is_torch_sparse_tensor(out):
+                return get_self_loop_attr(*to_edge_index(out), num_nodes=N)
+            return out[loop_index, loop_index]
 
         out = adj
-        row, col, value = out.coo()
-        pe_list = [get_self_loop_attr((row, col), value, num_nodes)]
+        pe_list = [get_pe(out)]
         for _ in range(self.walk_length - 1):
             out = out @ adj
-            row, col, value = out.coo()
-            pe_list.append(get_self_loop_attr((row, col), value, num_nodes))
-        pe = torch.stack(pe_list, dim=-1)
+            pe_list.append(get_pe(out))
 
+        pe = torch.stack(pe_list, dim=-1)
         data = add_node_attr(data, pe, attr_name=self.attr_name)
-        return data
+
+        return data 
 
 def pe_path_from(adj_path):
     base_path = '/'.join(adj_path.split('/')[:-1]) + '/'
@@ -244,30 +267,34 @@ def compute_pos_enc(args, le_size, rw_size, n2v_size, norm, device):
     adj = A if A.shape[0]==2 else np.where(A)
     edge_index = torch.tensor(adj, device=device)
     data = Data(edge_index=edge_index, device=device)
-
+    print(f' device: {device}')
     print(f' Calculating laplacian PE (dim={le_size})...')
+    tic = time.time()
     if le_size>0:
         pe_le = AddLaplacianEigenvectorPE(le_size)
         pe_le = pe_le(data).laplacian_eigenvector_pe.to('cpu').detach().numpy()
     elif le_size==0:
         pe_le = np.array([[] for i in range(A.shape[0])])
-    print(' Done.')
+    print(f' Done. (time: {time.time()-tic:.1f} s)')
     print(f' Calculating random walk PE (dim={rw_size})...')
+    tic = time.time()
     if rw_size>0:
         pe_rw = AddRandomWalkPE(rw_size)
-        pe_rw = pe_rw(data).random_walk_pe.to('cpu').detach().numpy()
+        pe_rw = pe_rw(data.to('cpu')).random_walk_pe.to('cpu').detach().numpy()
+        #pe_rw = pe_rw(data).random_walk_pe.to('cpu').detach().numpy()
     elif rw_size==0:
         pe_rw = np.array([[] for i in range(A.shape[0])])
-    print(' Done.')
+    print(f' Done. (time: {time.time()-tic:.1f} s)')
     print(f' Calculating node2vec PE (dim={n2v_size})...')
+    tic = time.time()
     if n2v_size>0:
-        pe_n2v = node2vec(data,n2v_size)(torch.arange(data.num_nodes,device=device))    
+        pe_n2v = node2vec(data,n2v_size,device)(torch.arange(data.num_nodes,device=device))    
         pe_n2v = pe_n2v.to('cpu').detach().numpy()
     elif n2v_size==0:
         pe_n2v = np.array([[] for i in range(A.shape[0])])
-    print(' Done.')
-    pe = [pe_le, pe_rw, pe_n2v]
-    norm = lambda x:  (x-x.min())/(x.max()-x.min())
+    print(f' Done. (time: {time.time()-tic:.1f} s)')
+    pe = [pe_le, pe_n2v]
+    norm = lambda x:  (x-x.min())/(x.max()-x.min()) if x.size>0 else x
     pe = [norm(e) for e in pe]
     pe = np.concatenate(pe, axis=-1)
     #pe = np.concatenate([pe_le/pe_le.max(), pe_rw/pe_rw.max(), pe_n2v/pe_n2v.max()], axis=1)

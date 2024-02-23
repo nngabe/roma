@@ -5,10 +5,10 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (2e-4, 'learning rate'),
-        'dropout': (0.0, 'dropout probability'),
-        'dropout_branch': (0.05, 'dropout probability in the branch net'),
-        'dropout_trunk': (0.05, 'dropout probability in the trunk net'),
+        'lr': (5e-5, 'learning rate'),
+        'dropout': (0.01, 'dropout probability'),
+        'dropout_branch': (0.01, 'dropout probability in the branch net'),
+        'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
         'epochs': (100000, 'number of epochs to train for'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -17,13 +17,13 @@ config_args = {
         'weight_decay': (1e-3, 'l2 regularization strength'),
         'beta': (0.99, 'moving average coefficient for SLAW'),
         'log_freq': (50, 'how often to compute print train/val metrics (in epochs)'),
-        'batch_freq': (25, 'how often to resample training graph'),
+        'batch_freq': (10, 'how often to resample training graph'),
         'max_norm': (1.0, 'max norm for gradient clipping, or None for no gradient clipping'),
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
-        'num_col': (5, 'number of colocation points in the time domain'),
+        'num_col': (1, 'number of colocation points in the time domain'),
         'batch_size': (216, 'number of nodes in test and batch graphs'),
-        'batch_down_sample': (1, 'factor to down sample training set.'),
+        'sampler_batch_size': (-1, 'factor to down sample training set.'),
         'batch_walk_len': (3, 'length of GraphSAINT sampler random walks.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'batch_red': (2, 'factor of reduction for batch size'),
@@ -45,16 +45,16 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
-        'w_ent': (2e-2, 'weight for assignment matrix entropy loss.'),
+        'w_ent': (1e-1, 'weight for assignment matrix entropy loss.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
         'rep_scaler': (1., 'rescaling of graph features'),
 
         # which layers use time encodings and what dim should encodings be
-        'pe_dim': (32, 'dimension of positional encoding'),
+        'pe_dim': (64, 'dimension of positional encoding'),
         'time_enc': ([0,1,1], 'whether to insert time encoding in encoder, decoder, and pde functions, respectively.'),
-        'time_dim': (1, 'dimension of time embedding'), 
+        'time_dim': (512, 'dimension of time embedding'), 
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
 
         # positional encoding arguments
@@ -83,13 +83,13 @@ config_args = {
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
         'enc_width': (64, 'dimensions of encoder layers'),
-        'dec_width': (640,'dimensions of decoder layers'),
-        'pde_width': (640, 'dimensions of each pde layers'),
-        'pool_width': (256, 'dimensions of each pde layers'),
-        'enc_depth': (2, 'dimensions of encoder layers'),
+        'dec_width': (512,'dimensions of decoder layers'),
+        'pde_width': (512, 'dimensions of each pde layers'),
+        'pool_width': (512, 'dimensions of each pde layers'),
+        'enc_depth': (3, 'dimensions of encoder layers'),
         'dec_depth': (5,'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
-        'pool_depth': (3, 'dimensions of each pooling layer'),
+        'pool_depth': (4, 'dimensions of each pooling layer'),
         'enc_dims': ([-1,96,-1], 'dimensions of encoder layers'),
         'dec_dims': ([-1,256,256,-1],'dimensions of decoder layers'),
         'pde_dims': ([-1,256,256,1], 'dimensions of each pde layers'),
@@ -107,7 +107,7 @@ config_args = {
         'res': (True, 'whether to use sum skip connections or not.'),
         'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
-        'c': (1.0, 'hyperbolic radius, set to None for trainable curvature'),
+        'c': (.5, 'hyperbolic radius, set to None for trainable curvature'),
         'edge_conv': (True, 'use edge convolution or not'),
         'agg': ('sum', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
@@ -119,7 +119,7 @@ config_args = {
         'local_agg': (1, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
-        'path': ('t170777797','snippet from which to infer data path'),
+        'path': ('t1707779950','from which to infer data path'),
         'log_path': (None, 'snippet from which to infer log/model path.'),
     }
 }
@@ -127,14 +127,15 @@ config_args = {
 def set_dims(args):
     # read cached pe if loading from path
     #if args.log_path != None: args.use_cached = True
-    
+    args.sampler_batch_size = args.batch_size//args.batch_walk_len + 10
+        
     # size of renorm/pooling graphs
     args.pool_size = [args.batch_size//args.pool_red**i for i in range(1,args.pool_init+1)]
     args.num_nodes = args.batch_size + sum(args.pool_size)
     
     # pe dims
     args.le_size = args.pe_dim
-    args.rw_size = args.pe_dim
+    args.rw_size =0# args.pe_dim
     args.n2v_size = sup_power_of_two(2*args.pe_dim)
     
     # layer dims (enc,renorm,pde,dec)
