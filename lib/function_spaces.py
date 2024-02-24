@@ -42,9 +42,9 @@ class GRF(eqx.Module):
     N: int
     T: float
     interp: Callable
-    x: np.ndarray
-    K: np.ndarray
-    L: np.ndarray
+    x: jnp.ndarray = eqx.field(static=True)
+    K: jnp.ndarray = eqx.field(static=True)
+    L: jnp.ndarray = eqx.field(static=True)
     num_func: int
 
     def __init__(self, T=1, kernel="RBF", length_scale=1, N=1000, num_func=10, interp="cubic"):

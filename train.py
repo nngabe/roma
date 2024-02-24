@@ -115,7 +115,7 @@ if __name__ == '__main__':
         print(f' x[test]  = {x[idx_test].shape},  adj[test]  = {edge_index_test.shape}')
         print(f'\n w[data,pde,gpde,ent] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ent:.0e})')
         print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})')
-    schedule = optax.warmup_exponential_decay_schedule(init_value=0., peak_value=args.lr, warmup_steps=args.epochs//2,
+    schedule = optax.warmup_exponential_decay_schedule(init_value=args.lr//5e+2, peak_value=args.lr, warmup_steps=args.epochs//10,
                                                         transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+3)
 
     params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2}

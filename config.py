@@ -5,7 +5,7 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (5e-5, 'learning rate'),
+        'lr': (3e-5, 'learning rate'),
         'dropout': (0.01, 'dropout probability'),
         'dropout_branch': (0.01, 'dropout probability in the branch net'),
         'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
@@ -17,14 +17,14 @@ config_args = {
         'weight_decay': (1e-3, 'l2 regularization strength'),
         'beta': (0.99, 'moving average coefficient for SLAW'),
         'log_freq': (50, 'how often to compute print train/val metrics (in epochs)'),
-        'batch_freq': (10, 'how often to resample training graph'),
-        'max_norm': (1.0, 'max norm for gradient clipping, or None for no gradient clipping'),
+        'batch_freq': (1, 'how often to resample training graph'),
+        'max_norm': (2.0, 'max norm for gradient clipping, or None for no gradient clipping'),
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
         'num_col': (1, 'number of colocation points in the time domain'),
         'batch_size': (216, 'number of nodes in test and batch graphs'),
         'sampler_batch_size': (-1, 'factor to down sample training set.'),
-        'batch_walk_len': (3, 'length of GraphSAINT sampler random walks.'),
+        'batch_walk_len': (4, 'length of GraphSAINT sampler random walks.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (4, 'factor of reduction for each pooling step'),
@@ -66,7 +66,7 @@ config_args = {
 
         # input/output sizes
         'fe': (0, 'encode features or not'),
-        'kappa': (64, 'size of lookback window used as input to encoder'),
+        'kappa': (16, 'size of lookback window used as input to encoder'),
         'f_dim': (64, 'size of fourier feature encoding'), 
         'tau_max': (1, 'maximum steps ahead forecast'),
         
@@ -77,7 +77,7 @@ config_args = {
         'pool': ('HGCN', 'which model to compute coarsening matrices'),
         'func_space': ('GRF', 'function space for DeepOnet.'),
         'length_scale': (1., 'length scale for GRF'),
-        'num_func': (32, 'number of functions to sample from func_space'),
+        'num_func': (512, 'number of functions to sample from func_space'),
         'num_spl': (1000, 'number of spline points for GRF'),
         'p_basis': (100, 'size of DeepOnet basis'),
 
@@ -87,9 +87,9 @@ config_args = {
         'pde_width': (512, 'dimensions of each pde layers'),
         'pool_width': (512, 'dimensions of each pde layers'),
         'enc_depth': (3, 'dimensions of encoder layers'),
-        'dec_depth': (5,'dimensions of decoder layers'),
+        'dec_depth': (6,'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
-        'pool_depth': (4, 'dimensions of each pooling layer'),
+        'pool_depth': (5, 'dimensions of each pooling layer'),
         'enc_dims': ([-1,96,-1], 'dimensions of encoder layers'),
         'dec_dims': ([-1,256,256,-1],'dimensions of decoder layers'),
         'pde_dims': ([-1,256,256,1], 'dimensions of each pde layers'),
