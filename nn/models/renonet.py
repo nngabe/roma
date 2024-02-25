@@ -19,13 +19,13 @@ class RenONet(eqx.Module):
     pde: eqx.Module
     pool: eqx.Module
     manifold: manifolds.base.Manifold
-    c: jnp.float32
-    w_data: jnp.float32
-    w_pde: jnp.float32
-    w_gpde: jnp.float32
-    w_ent: jnp.float32
-    F_max: jnp.float32
-    v_max: jnp.float32
+    c: jnp.float32 = eqx.field(static=True)
+    w_data: jnp.float32 = eqx.field(static=True)
+    w_pde: jnp.float32 = eqx.field(static=True)
+    w_gpde: jnp.float32 = eqx.field(static=True)
+    w_ent: jnp.float32 = eqx.field(static=True)
+    F_max: jnp.float32 = eqx.field(static=True)
+    v_max: jnp.float32 = eqx.field(static=True)
     x_dim: int
     t_dim: int
     pool_dims: List[int]
@@ -35,8 +35,8 @@ class RenONet(eqx.Module):
     scalers: Dict[str, jnp.ndarray] = eqx.field(static=True)
     beta: np.float32
     B: jnp.ndarray = eqx.field(static=True)
-    fe: bool
-    eta: np.float32
+    fe: bool 
+    eta: jnp.float32 = eqx.field(static=True)
     euclidean: bool
 
     def __init__(self, args):
@@ -61,7 +61,7 @@ class RenONet(eqx.Module):
         self.ln_pool = [eqx.nn.LayerNorm(dim) for dim in self.pool_dims]
         self.scalers = {'t': .01}
         self.beta = args.beta 
-        self.B = self.scalers['t'] * jr.normal(prng(0), (1, self.t_dim//2))
+        self.B = self.scalers['t'] * jr.normal(prng(0), (1+self.x_dim, self.t_dim//2))
         self.fe = args.fe
         self.eta = .01
         self.euclidean = True if args.manifold=='Euclidean' else False 
@@ -80,6 +80,21 @@ class RenONet(eqx.Module):
         t = jnp.concatenate([t_cos, t_sin], axis=-1).flatten()
         return t
 
+    def coord_encode(self, tx):
+        if len(tx.shape)>1:
+            return jax.vmap(self.coord_encode)(tx)        
+
+        if self.t_dim==1: 
+            return tx/3000.
+        
+        assert self.t_dim % 2 == 0
+        
+        Btx= jnp.einsum('i,ij -> ij', tx, self.B).reshape(-1,1)
+        tx_cos, tx_sin = jnp.sin(Btx), jnp.cos(Btx)
+        t = jnp.concatenate([tx_cos, tx_sin], axis=-1).flatten()
+        return t
+
+
     def exp(self, x):
         if self.euclidean:
             return x
@@ -95,14 +110,7 @@ class RenONet(eqx.Module):
         y = y * jnp.sqrt(self.c) * 1.4763057
         return y
 
-    def fourier_enc(self, x, key=prng(1)):
-        #x = x * jnp.exp(self.eta * jr.normal(key, x.shape))
-        Bx = jnp.einsum('ij,kj -> ik', x, self.B)
-        y = jnp.concatenate([jnp.cos(Bx), jnp.sin(Bx)], axis=-1)
-        return y
- 
-    def encode(self, x0, adj, key):
-        x = self.fourier_enc(x0) if self.fe else x0
+    def encode(self, x, adj, key):
         z = self.encoder(x, adj, key)
         return z
 
@@ -147,8 +155,9 @@ class RenONet(eqx.Module):
             return z_r, y_r, loss_ent, S, A
 
     def decode(self, tx, z, key):
-        t = self.time_encode(tx[:1])
-        tx = jnp.concatenate([t,tx[1:]], axis=-1)   
+        #t = self.time_encode(tx[:1])
+        #tx = jnp.concatenate([t,tx[1:]], axis=-1)
+        tx = self.coord_encode(tx) 
         if hasattr(self.decoder, 'branch'):
             p_dim, x_dim = self.decoder.p_dim, self.decoder.x_dim
             b_dim = p_dim * x_dim

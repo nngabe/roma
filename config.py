@@ -24,7 +24,7 @@ config_args = {
         'num_col': (1, 'number of colocation points in the time domain'),
         'batch_size': (216, 'number of nodes in test and batch graphs'),
         'sampler_batch_size': (-1, 'factor to down sample training set.'),
-        'batch_walk_len': (4, 'length of GraphSAINT sampler random walks.'),
+        'batch_walk_len': (3, 'length of GraphSAINT sampler random walks.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (4, 'factor of reduction for each pooling step'),
@@ -150,19 +150,19 @@ def set_dims(args):
     args.pool_dims[1:-1] = (args.pool_depth-1) * [args.pool_width]
     args.embed_dims[1:-1] = (args.pool_depth-1) * [args.pool_width]
     if args.res: 
-        enc_out = sum(args.enc_dims) + args.x_dim
-        args.dec_dims[0] = enc_out + args.time_enc[1] * args.time_dim 
+        enc_out = sum(args.enc_dims) 
+        args.dec_dims[0] = enc_out + (args.time_enc[1] + args.x_dim) * args.time_dim
     else: 
-        enc_out = args.enc_dims[-1] + args.x_dim
-        args.dec_dims[0] = enc_out + args.time_enc[1] * args.time_dim 
+        enc_out = args.enc_dims[-1] 
+        args.dec_dims[0] = enc_out + (args.time_enc[1] + args.x_dim) * args.time_dim
     
     if args.pde=='emergent':
         args.pde_dims[0] = args.dec_dims[0] + 5 * args.x_dim
     else: 
         args.pde_dims[0] = args.dec_dims[0] 
         
-    args.pool_dims[0] = enc_out - args.x_dim
-    args.embed_dims[0] = enc_out - args.kappa - args.x_dim 
+    args.pool_dims[0] = enc_out 
+    args.embed_dims[0] = enc_out - args.kappa 
     args.pool_dims[-1] = args.batch_size
     args.embed_dims[-1] = args.embed_dims[0] 
 
