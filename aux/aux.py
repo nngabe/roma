@@ -108,9 +108,9 @@ class pooling(eqx.Module):
         super(pooling, self).__init__()
         self.pools = {}
         self.embed = {}
-        for i in range(args.pool_init):
+        for i in range(args.pool_steps):
             self.pools[i] = getattr(models, args.pool)(args, module='pool')
-        for i in range(args.embed_init):
+        for i in range(args.pool_steps):
             self.embed[i] = getattr(models, args.pool)(args, module='embed')
 
     def __getitem__(self, i):

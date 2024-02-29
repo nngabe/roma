@@ -60,7 +60,7 @@ class GraphNet(eqx.Module):
         if self.euclidean:
             return y
         y = self.manifold.logmap0(y, self.c)
-        y = y * jnp.sqrt(self.c) * 1.4763057
+        y = y * jnp.sqrt(self.c) #* 1.4763057
         return y
 
     def __call__(self, x, adj, key, w):
@@ -134,10 +134,11 @@ class AttentionBlock(eqx.Module):
         self.dropout1 = eqx.nn.Dropout(dropout_rate)
         self.dropout2 = eqx.nn.Dropout(dropout_rate)
 
-    def __call__(self, x, key, mask=None): 
+    def __call__(self, x, key, mask=None, inspect=False): 
         
         input_x = jax.vmap(self.layer_norm1)(x)
-        x = x + self.attention(input_x, input_x, input_x, mask=mask)
+        attn = self.attention(input_x, input_x, input_x, mask=mask)
+        x = x + attn 
 
         input_x = jax.vmap(self.layer_norm2)(x)
         input_x = jax.vmap(self.linear1)(input_x)
@@ -150,8 +151,11 @@ class AttentionBlock(eqx.Module):
         input_x = self.dropout2(input_x, key=keys[1])
 
         x = x + input_x
-
-        return x
+        
+        if inspect: 
+            return x,attn 
+        else: 
+            return x
 
 class Transformer(eqx.Module):
     level_dims: list[int]
@@ -206,19 +210,25 @@ class Transformer(eqx.Module):
             res = res.at[l1:l2].add(self.level_embedding[i] * level_emb_scaler)
         return x
 
-    def __call__(self, x, key):
+    def __call__(self, x, key, inspect=False):
+        if inspect: attn = []
         mask = self.get_attn_mask(x) 
         x += self.multiscale_embedding(x)
         dropout_key, *attention_keys = jr.split(key, num=self.num_layers + 1)
         x = jax.vmap(self.lin1)(x)
         x = self.dropout(x, key=dropout_key)
         for block, key in zip(self.attention_blocks, attention_keys):
-            x = block(x, key=key, mask=mask)
-
+            x = block(x, key=key, mask=mask, inspect=inspect)
+            if inspect: 
+                attn.append(x[1])
+                x = x[0]
         x = jax.vmap(self.norm1)(x)
         x = jax.vmap(self.lin2)(x)
 
-        return x
+        if inspect: 
+            return x,attn 
+        else: 
+            return x
 
 class MLP(eqx.Module):
     num_layers: int
@@ -267,7 +277,7 @@ class DeepOnet(eqx.Module):
         self.func_space = getattr(lib.function_spaces, args.func_space)(num_func=args.num_func)
         args, dims, act, _ = get_dim_act(args, module)
         self.x_dim = args.x_dim
-        self.tx_dim = args.time_dim + args.x_dim 
+        self.tx_dim = 1 + args.x_dim 
         self.u_dim = args.kappa
         self.p_dim = args.p_basis
 
@@ -287,7 +297,7 @@ class DeepOnet(eqx.Module):
         self.branch = Transformer(self.branch_dims[0], self.branch_dims[-1], args, keys[0])
         self.trunk = MLP(self.trunk_dims[0], self.trunk_dims[-1], args, keys[1], res=args.trunk_res, norm=args.trunk_norm)
 
-    def __call__(self, x, adj=None, w=None, key=prng(0)):
+    def __call__(self, x, adj=None, w=None, key=prng(0), inspect=False):
         keys = jax.random.split(key,10)
         tx, uz = x[:self.tx_dim], x[self.tx_dim:]
         u, z = uz[:self.u_dim], uz[self.u_dim:]

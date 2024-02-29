@@ -11,8 +11,7 @@ import pandas as pd
 from typing import Any, Optional, Sequence, Tuple, Union, Dict
 
 import jax
-if jax.devices()[0].platform=='METAL': jax.config.update('jax_platform_name','cpu')
-
+import jax.random as jr
 import jax.numpy as jnp
 import equinox as eqx
 import optax
@@ -24,7 +23,7 @@ from torch_geometric.loader import GraphSAINTRandomWalkSampler
 from torch_geometric.transforms import LargestConnectedComponents as LCC
 
 from nn.models.renonet import RenONet, loss_train, loss_report, make_step
-from config import parser, set_dims
+from config import parser, configure
 
 from lib import utils
 from lib.graph_utils import get_next_batch, sup_power_of_two, pad_graph
@@ -36,14 +35,16 @@ prng = lambda i=0: jax.random.PRNGKey(i)
 
 if __name__ == '__main__':
     args = parser.parse_args()
+    args = configure(args)    
     args.data_path = glob.glob(f'../data/x*{args.path}*')[-1]
     args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*')[0]
-    args.pe_path = pe_path_from(args.adj_path)
+    args.pe_path = pe_path_from(args)
 
-    print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n')
+    print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n pe path: {args.pe_path}\n')
     
-    args = set_dims(args)    
-    pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached_pe, device='cuda') 
+    torch_device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached_pe, device=torch_device) 
+    pe = torch.tensor(pe)
     
     A = pd.read_csv(args.adj_path, index_col=0).to_numpy()
     adj = A if A.shape[0]==2 else np.where(A)
@@ -52,11 +53,10 @@ if __name__ == '__main__':
     x = pd.read_csv(args.data_path, index_col=0).dropna().T
     x = torch.tensor(x.to_numpy())
     x = (x - x.min())/(x.max() - x.min())
-    pe = torch.tensor(pe)
     n,T = x.shape
 
     # split training and test sets via torch geometric data loaders:
-    # i.e. datatypes are torch.tensor -> numpy.array (-> jax.Array during training)
+    # i.e. dataloader hold torch.tensors on cpu. pad_graph converts batches to numpy.array on cpu -> jax.Arrays on gpu during training
     torch.manual_seed(0)
     
     # test set
@@ -103,7 +103,7 @@ if __name__ == '__main__':
         print(f'  embed:')
         for i in model.pool.pools.keys(): 
             print(f'   embed_{i}: {args.pool}{args.embed_dims}')
-        print(f' time_enc: fourier[{args.time_dim}]\n')
+        print(f' time_enc: fourier[{args.coord_dim}][t_var={args.t_var},x_var={args.x_var}]\n')
      
     log = {}
     log['args'] = vars(copy.copy(args))
@@ -115,8 +115,26 @@ if __name__ == '__main__':
         print(f' x[test]  = {x[idx_test].shape},  adj[test]  = {edge_index_test.shape}')
         print(f'\n w[data,pde,gpde,ent] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ent:.0e})')
         print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})')
-    schedule = optax.warmup_exponential_decay_schedule(init_value=args.lr//5e+2, peak_value=args.lr, warmup_steps=args.epochs//10,
-                                                        transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+3)
+    
+    lr = args.lr
+    num_cycles = 2
+    cycle_length = args.epochs//num_cycles
+    warmup_steps = 1/5 * cycle_length
+    schedule = optax.join_schedules(schedules=
+        [
+          optax.warmup_cosine_decay_schedule(
+              init_value=lr*1e-3,
+              peak_value=lr * 10**-(1.5 * i/num_cycles),
+              end_value=lr*1e-4,
+              warmup_steps=warmup_steps,
+              decay_steps=(cycle_length - warmup_steps)*1.2) 
+          for i in range(num_cycles)
+        ], boundaries=jnp.cumsum(jnp.array([cycle_length] * num_cycles))
+    )
+
+
+    #schedule = optax.warmup_exponential_decay_schedule(init_value=args.lr//5e+2, peak_value=args.lr, warmup_steps=args.epochs//10,
+    #                                                    transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+3)
 
     params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2}
     optimizer = getattr(optax, args.optim)(**params)
@@ -124,13 +142,21 @@ if __name__ == '__main__':
     opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))
 
     @jax.jit
-    def _batch(x, pe, idx):
+    def _batch(x, pe, idx, sigma=args.eta_var, key=prng()):
         win = jnp.arange(1 - args.kappa, 1, 1)
         x = x.at[:, idx + win].get()
         x = jnp.swapaxes(x,0,1)
+        
+        # add noise
+        leta = jnp.sqrt(sigma) * jr.normal(key, x.shape)
+        eta = jnp.exp(leta)
+        x = eta * x
+
+        # add positional encoding
         pe = jnp.tile(pe, (idx.shape[0],1,1))
-        xb = jnp.concatenate([x, pe], axis=-1)
-        return xb
+        xi = jnp.concatenate([x, pe], axis=-1)
+
+        return xi
    
     stamp = str(int(time.time()))
     log['loss'] = {}
@@ -153,7 +179,7 @@ if __name__ == '__main__':
         bundles = idx + taus
         yi = x[:,bundles].T
         yi = jnp.swapaxes(yi,0,1)
-        xi = _batch(x, pe, idx)
+        xi = _batch(x, pe, idx, key=key)
         (loss, state), grad = loss_train(model, xi, adj, ti, yi, key=key, mode='train', state=state)
         grad = jax.tree_map(lambda x: 0. if jnp.isnan(x).any() else x, grad) 
         
@@ -169,7 +195,7 @@ if __name__ == '__main__':
             bundles = idx + taus
             yi = x[:,bundles].T
             yi = jnp.swapaxes(yi,0,1)
-            xi = _batch(x, pe, idx)
+            xi = _batch(x, pe, idx, sigma=0.)
             
             terms, _ = loss_report(model, xi, adj, ti, yi)
             loss = [term.mean() for term in terms]

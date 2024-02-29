@@ -11,7 +11,7 @@ from nn.models import models
 from aux import aux
 from lib.graph_utils import dense_to_coo
 
-prng = lambda i: jr.PRNGKey(i)
+prng = lambda i=0: jr.PRNGKey(i)
 
 class RenONet(eqx.Module):
     encoder: eqx.Module
@@ -24,19 +24,15 @@ class RenONet(eqx.Module):
     w_pde: jnp.float32 = eqx.field(static=True)
     w_gpde: jnp.float32 = eqx.field(static=True)
     w_ent: jnp.float32 = eqx.field(static=True)
-    F_max: jnp.float32 = eqx.field(static=True)
-    v_max: jnp.float32 = eqx.field(static=True)
     x_dim: int
-    t_dim: int
+    coord_dim: int
     pool_dims: List[int]
     ln_pool: List[eqx.nn.LayerNorm]
     kappa: int
     batch_size: int
-    scalers: Dict[str, jnp.ndarray] = eqx.field(static=True)
+    scalers: np.ndarray = eqx.field(static=True)
     beta: np.float32
     B: jnp.ndarray = eqx.field(static=True)
-    fe: bool 
-    eta: jnp.float32 = eqx.field(static=True)
     euclidean: bool
 
     def __init__(self, args):
@@ -53,46 +49,28 @@ class RenONet(eqx.Module):
         self.w_pde = args.w_pde
         self.w_gpde = args.w_gpde
         self.w_ent = args.w_ent
-        self.F_max = args.F_max
-        self.v_max = args.v_max
         self.x_dim = args.x_dim
-        self.t_dim = args.time_dim
-        self.pool_dims = args.pool_size #[self.pool.pools[i].layers[-1].linear.linear.bias.shape[0] for i in self.pool.pools]
+        self.coord_dim = args.coord_dim
+        self.pool_dims = args.pool_size 
         self.ln_pool = [eqx.nn.LayerNorm(dim) for dim in self.pool_dims]
-        self.scalers = {'t': .01}
+        self.scalers = np.concatenate([[args.t_var], self.x_dim * [args.x_var]], axis=0).reshape(-1,1)
         self.beta = args.beta 
-        self.B = self.scalers['t'] * jr.normal(prng(0), (1+self.x_dim, self.t_dim//2))
-        self.fe = args.fe
-        self.eta = .01
+        self.B = self.scalers * jr.normal(prng(), (1 + self.x_dim, args.coord_dim//2))
         self.euclidean = True if args.manifold=='Euclidean' else False 
-
-    def time_encode(self, t):
-        if len(t.shape)>1:
-            return jax.vmap(self.time_encode)(t)        
-
-        if self.t_dim==1: 
-            return t/3000.
-        
-        assert self.t_dim % 2 == 0
-        
-        Bt = t * self.B  
-        t_cos, t_sin = jnp.sin(Bt), jnp.cos(Bt)
-        t = jnp.concatenate([t_cos, t_sin], axis=-1).flatten()
-        return t
 
     def coord_encode(self, tx):
         if len(tx.shape)>1:
             return jax.vmap(self.coord_encode)(tx)        
 
-        if self.t_dim==1: 
-            return tx/3000.
+        if self.coord_dim==1: 
+            return tx * 1e-3
         
-        assert self.t_dim % 2 == 0
+        assert self.coord_dim % 2 == 0
         
         Btx= jnp.einsum('i,ij -> ij', tx, self.B).reshape(-1,1)
         tx_cos, tx_sin = jnp.sin(Btx), jnp.cos(Btx)
-        t = jnp.concatenate([tx_cos, tx_sin], axis=-1).flatten()
-        return t
+        tx = jnp.concatenate([tx_cos, tx_sin], axis=-1).flatten()
+        return tx
 
 
     def exp(self, x):
@@ -107,7 +85,7 @@ class RenONet(eqx.Module):
         if self.euclidean:
             return y
         y = self.manifold.logmap0(y, self.c)
-        y = y * jnp.sqrt(self.c) * 1.4763057
+        y = y * jnp.sqrt(self.c) #* 1.4763057
         return y
 
     def encode(self, x, adj, key):
@@ -219,7 +197,7 @@ class RenONet(eqx.Module):
             resid, gpde = jax.vmap(pde_rg)(tx, z_pde, u, grad, lap_x)
             loss_pde += jnp.square(resid).mean()
             loss_gpde += jnp.square(gpde).mean()
-            t_ += 1 
+            t_ += 1.
             tx = jnp.concatenate([t_,x], axis=-1)
             x = jnp.concatenate([z[:,1:self.kappa], red.reshape(-1,1)], axis=-1)
             z = z.at[:,:self.kappa].set(x)

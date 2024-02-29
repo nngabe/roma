@@ -256,10 +256,6 @@ class AddRandomWalkPE(BaseTransform):
 
         return data 
 
-def pe_path_from(adj_path):
-    base_path = '/'.join(adj_path.split('/')[:-1]) + '/'
-    pe_path = base_path + 'pe_' + '_'.join(adj_path.split('/')[-1].split('_')[1:])
-    return pe_path
 
 def compute_pos_enc(args, le_size, rw_size, n2v_size, norm, device):
     torch.device(device)
@@ -299,10 +295,16 @@ def compute_pos_enc(args, le_size, rw_size, n2v_size, norm, device):
     pe = np.concatenate(pe, axis=-1)
     #pe = np.concatenate([pe_le/pe_le.max(), pe_rw/pe_rw.max(), pe_n2v/pe_n2v.max()], axis=1)
 
-    pe_path = pe_path_from(args.adj_path)
+    pe_path = pe_path_from(args)
     pd.DataFrame(pe).to_csv(pe_path)
 
     return pe
+
+def pe_path_from(args):
+    base_path = '/'.join(args.adj_path.split('/')[:-1]) + '/'
+    pe_path = base_path + 'pe_' + f'dim{args.pe_size}_' 
+    pe_path = pe_path + '_'.join(args.adj_path.split('/')[-1].split('_')[1:])
+    return pe_path
 
 def pos_enc(args, le_size=50, rw_size=50, n2v_size=128, norm=False, use_cached=False, device='cpu'):
     """ Read positional encoding from path if it exists else compute from adjacency matrix."""
