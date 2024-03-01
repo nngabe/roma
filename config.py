@@ -5,20 +5,20 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (2e-5, 'learning rate'),
-        'dropout': (0.01, 'dropout probability'),
-        'dropout_branch': (0.02, 'dropout probability in the branch net'),
-        'dropout_trunk': (0.02, 'dropout probability in the trunk net'),
+        'lr': (1e-4, 'learning rate'),
+        'dropout': (0.02, 'dropout probability'),
+        'dropout_branch': (0.04, 'dropout probability in the branch net'),
+        'dropout_trunk': (0.04, 'dropout probability in the trunk net'),
         'epochs': (100000, 'number of epochs to train for'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
         'b1': (.9, 'coefficient for first moment in adam'),
         'b2': (.999, 'coefficient for first moment in adam'),
         'weight_decay': (1e-3, 'l2 regularization strength'),
-        'beta': (0.99, 'moving average coefficient for SLAW'),
+        'beta': (.99, 'moving average coefficient for SLAW'),
         'log_freq': (50, 'how often to compute print train/val metrics (in epochs)'),
         'batch_freq': (1, 'how often to resample training graph'),
-        'max_norm': (1.0, 'max norm for gradient clipping, or None for no gradient clipping'),
+        'max_norm': (0.02, 'max norm for gradient clipping, or None for no gradient clipping'),
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
         'num_col': (1, 'number of colocation points in the time domain'),
@@ -29,7 +29,7 @@ config_args = {
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (2, 'factor of reduction for each pooling step'),
         'pool_steps': (2, 'number of pooling steps'),
-        'eta_var': (4e-4, 'variance of aleotoric uncertainty'),
+        'eta_var': (4e-4, 'variance of multiplicative noise'),
     },
     'model_config': {
 
