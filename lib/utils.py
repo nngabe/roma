@@ -4,6 +4,7 @@ import math
 import glob
 import pickle
 import jax
+from jax.tree_util import tree_map
 import equinox as eqx
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -12,6 +13,10 @@ import jax.numpy as jnp
 from argparse import Namespace
 
 from nn.models.renonet import RenONet
+
+def clip_tree(tree, max_norm, spec=eqx.is_inexact_array):
+  clip_fn = lambda x: jnp.clip(x, -max_norm, max_norm) if spec(x) else x
+  return tree_map(clip_fn, tree)
 
 def trunc_init(weight: jax.Array, key: jax.random.PRNGKey) -> jax.Array:
   out, in_ = weight.shape

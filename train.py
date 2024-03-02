@@ -117,7 +117,7 @@ if __name__ == '__main__':
         print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})')
     
     lr = args.lr
-    num_cycles = 2
+    num_cycles = args.num_cycles
     cycle_length = args.epochs//num_cycles
     warmup_steps = 1/5 * cycle_length
     schedule = optax.join_schedules(schedules=
@@ -157,11 +157,44 @@ if __name__ == '__main__':
         xi = jnp.concatenate([x, pe], axis=-1)
 
         return xi
-   
+      
+    #@jax.jit 
+    def update(key, model, x, pe, adj, state, opt_state):
+        key = jax.random.split(key)[0]
+        ti = jax.random.randint(key, (args.num_col, 1), args.kappa, T-args.kappa).astype(jnp.float32)
+        idx = ti.astype(int)
+        taus = jnp.arange(1, 1+args.tau_max, 1)
+        bundles = idx + taus
+        yi = x[:,bundles].T
+        yi = jnp.swapaxes(yi,0,1)
+        xi = _batch(x, pe, idx, key=key)
+        
+        (loss, state), grad = loss_train(model, xi, adj, ti, yi, key=key, mode='train', state=state)
+        grad = jax.tree_map(lambda x: 0. if jnp.isnan(x).any() else x, grad) 
+        grad = eqx.tree_at(lambda x: x.encoder, grad, utils.clip_tree(grad.encoder, args.max_norm_enc))
+        grad = eqx.tree_at(lambda x: x.pool, grad, utils.clip_tree(grad.pool, args.max_norm_enc))        
+        model, opt_state = make_step(grad, model, opt_state, optim)
+        return model, opt_state, key
+
+    #@jax.jit
+    def loss_test(model, x, adj, pe):
+        model = eqx.tree_inference(model, value=True) 
+        ti = jnp.linspace(args.kappa, T - args.kappa , 10).reshape(-1,1)
+        idx = ti.astype(int)
+        taus = jnp.arange(1, 1+args.tau_max, 1).astype(int)
+        bundles = idx + taus
+        yi = x[:,bundles].T
+        yi = jnp.swapaxes(yi,0,1)
+        xi = _batch(x, pe, idx, sigma=0.)
+        
+        terms, _ = loss_report(model, xi, adj, ti, yi)
+        loss = [term.mean() for term in terms]
+        model = eqx.tree_inference(model, value=False) 
+        return loss, model
+ 
     stamp = str(int(time.time()))
     log['loss'] = {}
    
-    n = args.num_col # number of temporal colocation points
     tic = time.time()
     state = {'a': jnp.zeros(4), 'b': jnp.zeros(4)} if args.slaw else None
     key = jax.random.PRNGKey(0)
@@ -172,33 +205,13 @@ if __name__ == '__main__':
             batch, loader = get_next_batch(loader, args, data_train)
         
         x, adj, pe = pad_graph(batch.x.numpy(), batch.edge_index.numpy(), batch.pe.numpy(), x_size=args.batch_size)
-        key = jax.random.split(key)[0]
-        ti = jax.random.randint(key, (n, 1), args.kappa, T-args.kappa).astype(jnp.float32)
-        idx = ti.astype(int)
-        taus = jnp.arange(1, 1+args.tau_max, 1)
-        bundles = idx + taus
-        yi = x[:,bundles].T
-        yi = jnp.swapaxes(yi,0,1)
-        xi = _batch(x, pe, idx, key=key)
-        (loss, state), grad = loss_train(model, xi, adj, ti, yi, key=key, mode='train', state=state)
-        grad = jax.tree_map(lambda x: 0. if jnp.isnan(x).any() else x, grad) 
+
+        model, opt_state, key = update(key, model, x, pe, adj, state, opt_state)
         
-        model, opt_state = make_step(grad, model, opt_state, optim)
         if i % args.log_freq == 0:
             
             x, adj, pe = x_test, adj_test, pe_test
-            model = eqx.tree_inference(model, value=True) 
-
-            ti = jnp.linspace(args.kappa, T - args.kappa , 10).reshape(-1,1)
-            idx = ti.astype(int)
-            taus = jnp.arange(1, 1+args.tau_max, 1).astype(int)
-            bundles = idx + taus
-            yi = x[:,bundles].T
-            yi = jnp.swapaxes(yi,0,1)
-            xi = _batch(x, pe, idx, sigma=0.)
-            
-            terms, _ = loss_report(model, xi, adj, ti, yi)
-            loss = [term.mean() for term in terms]
+            loss, model = loss_test(model, x, adj, pe)
             log['loss'][i] = [loss[0].item(), loss[1].item(), loss[2].item(), loss[3].item(), loss[4].item()]
             
             if args.verbose:
@@ -206,9 +219,6 @@ if __name__ == '__main__':
                       f' l_gpde = {loss[3]:.2e},  l_ent = {loss[4]:.2e};' 
                       f' lr = {schedule(i).item():.2e} (time: {time.time()-tic:.1f} s)')
             tic = time.time()
-            
-            
-            model = eqx.tree_inference(model, value=False)
             
         if i % args.log_freq * 100 == 0:
             utils.save_model(model, log, stamp=stamp)

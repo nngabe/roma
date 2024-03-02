@@ -6,10 +6,12 @@ OPTS = []
 
 if batch == '':
     OUT_FILE = 'args/base.txt'
-    opts = {'manifold': ['PoincareBall'], 'length_scale':[1.,1.5,2.]}
-    OPTS.append(opts)
     opts = {'manifold': ['Euclidean','PoincareBall'], 'w_pde':[1e-20, 1e+0], 'w_gpde': [1e-20, 1e+3] }
     OPTS.append(opts)
+if batch == 'clip':
+    OUT_FILE = 'args/clip.txt'
+    opts = {'max_norm': [.01,.04], 'max_norm_enc': [.01,.04], 'w_ent': [1e-2, 5e-3], 'epochs': [10000]}
+
 elif batch == 'agg':
     OUT_FILE = 'args/agg.txt'
     opts = {'agg': ['multi', 'mean', 'sum']}

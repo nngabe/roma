@@ -1,0 +1,8 @@
+--max_norm 0.01 --max_norm_enc 0.01 --w_ent 0.01 --epochs 10000 
+--max_norm 0.01 --max_norm_enc 0.01 --w_ent 0.005 --epochs 10000 
+--max_norm 0.01 --max_norm_enc 0.04 --w_ent 0.01 --epochs 10000 
+--max_norm 0.01 --max_norm_enc 0.04 --w_ent 0.005 --epochs 10000 
+--max_norm 0.04 --max_norm_enc 0.01 --w_ent 0.01 --epochs 10000 
+--max_norm 0.04 --max_norm_enc 0.01 --w_ent 0.005 --epochs 10000 
+--max_norm 0.04 --max_norm_enc 0.04 --w_ent 0.01 --epochs 10000 
+--max_norm 0.04 --max_norm_enc 0.04 --w_ent 0.005 --epochs 10000 
