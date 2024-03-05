@@ -33,6 +33,7 @@ class RenONet(eqx.Module):
     scalers: np.ndarray = eqx.field(static=True)
     beta: np.float32
     B: jnp.ndarray = eqx.field(static=True)
+    embed_pe: eqx.nn.MLP
     euclidean: bool
 
     def __init__(self, args):
@@ -56,6 +57,8 @@ class RenONet(eqx.Module):
         self.scalers = np.concatenate([[args.t_var], self.x_dim * [args.x_var]], axis=0).reshape(-1,1)
         self.beta = args.beta 
         self.B = self.scalers * jr.normal(prng(), (1 + self.x_dim, args.coord_dim//2))
+        self.embed_pe = eqx.nn.MLP(args.pe_size, self.kappa, 3 * self.kappa, 2, activation = jax.nn.gelu, key=prng()) 
+        #self.embed_pe = eqx.nn.Linear(args.pe_size, self.kappa, key=prng()) 
         self.euclidean = True if args.manifold=='Euclidean' else False 
 
     def coord_encode(self, tx):
@@ -72,7 +75,6 @@ class RenONet(eqx.Module):
         tx = jnp.concatenate([tx_cos, tx_sin], axis=-1).flatten()
         return tx
 
-
     def exp(self, x):
         if self.euclidean:
             return x
@@ -85,10 +87,13 @@ class RenONet(eqx.Module):
         if self.euclidean:
             return y
         y = self.manifold.logmap0(y, self.c)
-        y = y * jnp.sqrt(self.c) #* 1.4763057
+        y = y * jnp.sqrt(self.c) * 1.4#763057
         return y
 
     def encode(self, x, adj, key):
+        s,pe = x[:,:self.kappa], x[:,self.kappa:]
+        pe = jax.vmap(self.embed_pe)(pe)
+        x = jnp.concatenate([s,pe], axis=-1)
         z = self.encoder(x, adj, key)
         return z
 
@@ -97,7 +102,7 @@ class RenONet(eqx.Module):
         z0 = z[:,:self.kappa]
         zi = z[:,self.kappa:]
         ze = self.pool.embed[i](zi, adj, keys[0], w)
-        s = self.pool[i](z, adj, keys[1], w)
+        s = self.pool[i](zi, adj, keys[1], w)
         z = jnp.concatenate([z0,ze], axis=-1)
         return z,s
 

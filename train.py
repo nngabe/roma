@@ -119,7 +119,7 @@ if __name__ == '__main__':
     lr = args.lr
     num_cycles = args.num_cycles
     cycle_length = args.epochs//num_cycles
-    warmup_steps = 1/5 * cycle_length
+    warmup_steps = 2/5 * cycle_length
     schedule = optax.join_schedules(schedules=
         [
           optax.warmup_cosine_decay_schedule(
@@ -127,7 +127,7 @@ if __name__ == '__main__':
               peak_value=lr * 10**-(1.5 * i/num_cycles),
               end_value=lr*1e-4,
               warmup_steps=warmup_steps,
-              decay_steps=(cycle_length - warmup_steps)*1.2) 
+              decay_steps=(cycle_length - warmup_steps)*1.6) 
           for i in range(num_cycles)
         ], boundaries=jnp.cumsum(jnp.array([cycle_length] * num_cycles))
     )
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     #schedule = optax.warmup_exponential_decay_schedule(init_value=args.lr//5e+2, peak_value=args.lr, warmup_steps=args.epochs//10,
     #                                                    transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+3)
 
-    params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2}
+    params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2, 'eps': 1e-6}
     optimizer = getattr(optax, args.optim)(**params)
     optim = optax.chain(optax.clip(args.max_norm), optimizer)
     opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     #@jax.jit
     def loss_test(model, x, adj, pe):
         model = eqx.tree_inference(model, value=True) 
-        ti = jnp.linspace(args.kappa, T - args.kappa , 10).reshape(-1,1)
+        ti = jnp.linspace(args.kappa, T - args.kappa , 20).reshape(-1,1)
         idx = ti.astype(int)
         taus = jnp.arange(1, 1+args.tau_max, 1).astype(int)
         bundles = idx + taus

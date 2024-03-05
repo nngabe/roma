@@ -60,7 +60,7 @@ class GraphNet(eqx.Module):
         if self.euclidean:
             return y
         y = self.manifold.logmap0(y, self.c)
-        y = y * jnp.sqrt(self.c) #* 1.4763057
+        y = y * jnp.sqrt(self.c) * 1.4#763057
         return y
 
     def __call__(self, x, adj, key, w):

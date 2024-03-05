@@ -7,19 +7,19 @@ config_args = {
     'training_config': {
         'lr': (1e-5, 'learning rate'),
         'dropout': (0.02, 'dropout probability'),
-        'dropout_branch': (0.04, 'dropout probability in the branch net'),
-        'dropout_trunk': (0.04, 'dropout probability in the trunk net'),
-        'epochs': (100000, 'number of epochs to train for'),
-        'num_cycles': (1, 'number of warmup/cosine decay cycles'),
-        'optim': ('adamw', 'optax class name of optimizer'),
+        'dropout_branch': (0.02, 'dropout probability in the branch net'),
+        'dropout_trunk': (0.02, 'dropout probability in the trunk net'),
+        'epochs': (25000, 'number of epochs to train for'),
+        'num_cycles': (2, 'number of warmup/cosine decay cycles'),
+        'optim': ('nadamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
-        'b1': (.9, 'coefficient for first moment in adam'),
-        'b2': (.999, 'coefficient for first moment in adam'),
-        'weight_decay': (1e-3, 'l2 regularization strength'),
+        'b1': (.99, 'coefficient for first moment in adam'),
+        'b2': (.999, 'coefficient for second moment in adam'),
+        'weight_decay': (1e-2, 'l2 regularization strength'),
         'beta': (.99, 'moving average coefficient for SLAW'),
-        'log_freq': (50, 'how often to compute print train/val metrics (in epochs)'),
+        'log_freq': (100, 'how often to compute print train/val metrics (in epochs)'),
         'batch_freq': (1, 'how often to resample training graph'),
-        'max_norm': (0.05, 'max norm for gradient clipping, or None for no gradient clipping'),
+        'max_norm': (0.007, 'max norm for gradient clipping, or None for no gradient clipping'),
         'max_norm_enc': (0.01, 'max norm for graph network gradient clipping, or None for no gradient clipping'),
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
@@ -31,7 +31,7 @@ config_args = {
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (2, 'factor of reduction for each pooling step'),
         'pool_steps': (2, 'number of pooling steps'),
-        'eta_var': (1e-6, 'variance of multiplicative noise'),
+        'eta_var': (1e-4, 'variance of multiplicative noise'),
     },
     'model_config': {
 
@@ -42,7 +42,7 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
-        'w_ent': (1e-2, 'weight for assignment matrix entropy loss.'),
+        'w_ent': (1e-3, 'weight for assignment matrix entropy loss.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
@@ -51,8 +51,8 @@ config_args = {
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
         'coord_dim': (512, 'dimension of (t,x) embedding'), 
-        't_var': (1e-2, 'variance of time embedding in trunk net'),
-        'x_var': (1e-3, 'variance of space embedding in trunk net'),
+        't_var': (5e-2, 'variance of time embedding in trunk net'),
+        'x_var': (1e-2, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
         'pe_dim': (128, 'dimension of positional encoding'),
@@ -104,7 +104,7 @@ config_args = {
         'res': (True, 'whether to use sum skip connections or not.'),
         'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
-        'c': (1.0, 'hyperbolic radius, set to None for trainable curvature'),
+        'c': (1/4, 'hyperbolic radius, set to None for trainable curvature'),
         'edge_conv': (True, 'use edge convolution or not'),
         'agg': ('sum', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
@@ -139,8 +139,8 @@ def configure(args):
     
     # layer dims (enc,renorm,pde,dec)
     args.pde_depth = args.dec_depth
-    args.enc_dims[0] = args.kappa
-    args.enc_dims[0] += args.le_size + args.rw_size + args.n2v_size
+    args.enc_dims[0] = args.kappa * 2
+    #args.enc_dims[0] += args.le_size + args.rw_size + args.n2v_size
     args.enc_dims[-1] = args.enc_width 
     args.dec_dims[-1] = args.x_dim
     args.enc_dims[1:-1] = (args.enc_depth-1) * [args.enc_width]
@@ -160,7 +160,7 @@ def configure(args):
     else: 
         args.pde_dims[0] = args.dec_dims[0] 
         
-    args.pool_dims[0] = enc_out 
+    args.pool_dims[0] = enc_out - args.kappa
     args.embed_dims[0] = enc_out - args.kappa 
     args.pool_dims[-1] = args.pool_size[0] * args.pool_red
     args.embed_dims[-1] = args.embed_dims[0] 
