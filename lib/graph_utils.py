@@ -36,7 +36,7 @@ def pad_graph(x: np.ndarray,
               adj_size: int = None,
               pad_x : bool = True) -> Tuple[np.ndarray, ...]:
     x_size = sup_power_of_two(x.shape[0]) if not x_size else x_size
-    adj_size = sup_power_of_two(adj.shape[1]+500) if not adj_size else adj_size
+    adj_size = sup_power_of_two(adj.shape[1]) if not adj_size else adj_size
     x_pad = 0.*np.ones((x_size-x.shape[0], x.shape[1]))
     pe_pad = 0.*np.ones((x_size-x.shape[0], pe.shape[1]))
     adj_pad = -1*np.ones((adj.shape[0], adj_size-adj.shape[1]), dtype=np.int32)
@@ -44,6 +44,23 @@ def pad_graph(x: np.ndarray,
         return np.concatenate([x, x_pad], axis=0), np.concatenate([adj, adj_pad], axis=1), np.concatenate([pe, pe_pad], axis=0)
     else:
         return x, jnp.concatenate([adj, adj_pad],axis=1), pe
+
+def threshold_subgraphs_by_size(edge_index, min_size=200):
+    import networkx as nx
+    adj = edge_index
+    adj = [(i[0].item(),i[1].item()) for i in adj.T]
+
+    G = nx.Graph()
+    G.add_edges_from(adj)
+    Gs = [g for g in nx.connected_components(G)]
+
+    subgraph_sizes = np.array([len(g) for g in Gs])
+    subgraphs = [list(g) for g in Gs]
+
+    idx = np.where(subgraph_sizes > min_size)[0]
+    subs = [subgraphs[i] for i in idx]   #; print(f' subraph_sizes = {[len(s) for s in subs]}')
+    subgraph = np.concatenate(subs)      #; print(f' subgraph = {subgraph} (dim = {len(subgraph)})')
+    return subgraph
 
 def pad_adj(adj: jnp.ndarray,
             adj_size: int = None,

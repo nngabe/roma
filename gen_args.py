@@ -12,13 +12,14 @@ if batch == '':
 
 elif batch == 'optim':
     OUT_FILE = 'args/optim.txt'
-    opts = {'weight_decay': [1e-2], 'b1': [.9], 'epochs': [5000], 'log_path': [1709607155]}
+    opts = {'weight_decay': [1e-2], 'b1': [.9], 'epochs': [10000], 'log_path': [1709754619]}
     OPTS.append(opts)
-    opts = {'weight_decay': [1e-3], 'b1': [.99], 'epochs': [5000],'log_path': [1709607155]}
+    opts = {'weight_decay': [1e-3], 'b1': [.9], 'epochs': [10000],'log_path': [1709754619]}
     OPTS.append(opts)
-    opts = {'use_layer_norm': [1], 'log_path': [1709607155]}
+    opts = {'epsilon': [1e-4] ,'weight_decay': [1e-3], 'b1': [.9], 'epochs': [10000], 'log_path': [1709754619]}
     OPTS.append(opts)
-
+    opts = {'optim': ['adamw'], 'weight_decay': [1e-3], 'b1': [.9], 'epochs': [10000], 'log_path': [1709754619]}
+    OPTS.append(opts)
 
 elif batch == 'clip':
     OUT_FILE = 'args/clip.txt'

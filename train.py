@@ -26,7 +26,7 @@ from nn.models.renonet import RenONet, loss_train, loss_report, make_step
 from config import parser, configure
 
 from lib import utils
-from lib.graph_utils import get_next_batch, sup_power_of_two, pad_graph
+from lib.graph_utils import get_next_batch, sup_power_of_two, pad_graph, threshold_subgraphs_by_size
 from lib.positional_encoding import pe_path_from, pos_enc
 
 #jax.config.update("jax_enable_x64", True)
@@ -72,7 +72,11 @@ if __name__ == '__main__':
     mask_train = torch.ones(n, dtype=torch.int)
     mask_train[idx_test] = 0
     idx_train = torch.where(mask_train)[0]    
+    edge_index_train, _ = subgraph(idx_train, edge_index, relabel_nodes=False)
+
+    idx_train = threshold_subgraphs_by_size(edge_index_train, min_size = args.min_subgraph_size)    
     edge_index_train, _ = subgraph(idx_train, edge_index, relabel_nodes=True)
+
     x_train, pe_train = x[idx_train], pe[idx_train]
     idx=torch.arange(x_train.shape[0]).reshape(-1,1) 
     data_train = Data(edge_index=edge_index_train, idx=idx, x=x[idx_train], pe=pe[idx_train])
@@ -111,32 +115,46 @@ if __name__ == '__main__':
     log['test_index'] = idx_test
 
     if args.verbose:
-        print(f'\n x[train] = {x[idx_train].shape}, adj[train] = {edge_index_train.shape}')
-        print(f' x[test]  = {x[idx_test].shape},  adj[test]  = {edge_index_test.shape}')
-        print(f'\n w[data,pde,gpde,ent] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ent:.0e})')
-        print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})')
+        print(f' x[train] = {x[idx_train].shape}, adj[train] = {edge_index_train.shape}')
+        print(f' x[test]  = {x[idx_test].shape},  adj[test]  = {edge_index_test.shape}\n')
+
+        
+        print(f' optim(lr,b1,b2,wd) = {args.optim}(lr={args.lr}, b1={args.b1}, b2={args.b2}, wd={args.weight_decay})')
+        print(f' w[data,pde,gpde,ent] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ent:.0e})')
+        print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})\n')
     
     lr = args.lr
     num_cycles = args.num_cycles
     cycle_length = args.epochs//num_cycles
-    warmup_steps = 2/5 * cycle_length
-    schedule = optax.join_schedules(schedules=
+    warmup_steps = 1/2 * cycle_length
+
+    schedule_cos = optax.join_schedules(schedules=
         [
           optax.warmup_cosine_decay_schedule(
               init_value=lr*1e-3,
               peak_value=lr * 10**-(1.5 * i/num_cycles),
-              end_value=lr*1e-4,
+              end_value=lr*1e-3,
               warmup_steps=warmup_steps,
               decay_steps=(cycle_length - warmup_steps)*1.6) 
           for i in range(num_cycles)
         ], boundaries=jnp.cumsum(jnp.array([cycle_length] * num_cycles))
     )
 
+    schedule = optax.join_schedules(schedules=
+        [
+          optax.warmup_exponential_decay_schedule(
+              init_value=lr*2e-3,
+              peak_value=lr * 10**-(1.5 * i/num_cycles),
+              end_value=lr*2e-3,
+              warmup_steps=warmup_steps, 
+              transition_steps=(cycle_length - warmup_steps)*2.2, 
+              decay_rate = 1e-6) for i in range(num_cycles)
+        ] , boundaries=jnp.cumsum(jnp.array([cycle_length] * num_cycles)))
 
     #schedule = optax.warmup_exponential_decay_schedule(init_value=args.lr//5e+2, peak_value=args.lr, warmup_steps=args.epochs//10,
     #                                                    transition_steps=args.epochs, decay_rate=5e-3, end_value=args.lr/1e+3)
 
-    params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2, 'eps': 1e-6}
+    params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2, 'eps': args.epsilon}
     optimizer = getattr(optax, args.optim)(**params)
     optim = optax.chain(optax.clip(args.max_norm), optimizer)
     opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))
