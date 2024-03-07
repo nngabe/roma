@@ -3,6 +3,7 @@ from typing import Union, List, Tuple
 import jax
 import jax.numpy as jnp
 import numpy as np
+import torch
 from torch_geometric.loader import GraphSAINTRandomWalkSampler
 import networkx as nx
 from community import community_louvain
@@ -60,7 +61,7 @@ def threshold_subgraphs_by_size(edge_index, min_size=200):
     idx = np.where(subgraph_sizes > min_size)[0]
     subs = [subgraphs[i] for i in idx]   #; print(f' subraph_sizes = {[len(s) for s in subs]}')
     subgraph = np.concatenate(subs)      #; print(f' subgraph = {subgraph} (dim = {len(subgraph)})')
-    return subgraph
+    return torch.tensor(subgraph)
 
 def pad_adj(adj: jnp.ndarray,
             adj_size: int = None,
