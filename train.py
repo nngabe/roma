@@ -189,8 +189,9 @@ if __name__ == '__main__':
         
         (loss, state), grad = loss_train(model, xi, adj, ti, yi, key=key, mode='train', state=state)
         grad = jax.tree_map(lambda x: 0. if jnp.isnan(x).any() else x, grad) 
-        grad = eqx.tree_at(lambda x: x.encoder, grad, utils.clip_tree(grad.encoder, args.max_norm_enc))
-        grad = eqx.tree_at(lambda x: x.pool, grad, utils.clip_tree(grad.pool, args.max_norm_enc))        
+        if args.max_norm != args.max_norm_enc:
+            grad = eqx.tree_at(lambda x: x.encoder, grad, utils.clip_tree(grad.encoder, args.max_norm_enc))
+            grad = eqx.tree_at(lambda x: x.pool, grad, utils.clip_tree(grad.pool, args.max_norm_enc))        
         model, opt_state = make_step(grad, model, opt_state, optim)
         return model, opt_state, key
 

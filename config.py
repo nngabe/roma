@@ -6,10 +6,10 @@ from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
         'lr': (1e-5, 'learning rate'),
-        'dropout': (0.01, 'dropout probability'),
+        'dropout': (0.02, 'dropout probability'),
         'dropout_branch': (0.01, 'dropout probability in the branch net'),
         'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
-        'epochs': (100000, 'number of epochs to train for'),
+        'epochs': (20000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('nadamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -19,16 +19,16 @@ config_args = {
         'epsilon': (1e-8, 'epsilon in adam denominator'),
         'beta': (.99, 'moving average coefficient for SLAW'),
         'log_freq': (100, 'how often to compute print train/val metrics (in epochs)'),
-        'batch_freq': (5, 'how often to resample training graph'),
-        'max_norm': (1., 'max norm for gradient clipping, or None for no gradient clipping'),
-        'max_norm_enc': (1., 'max norm for graph network gradient clipping, or None for no gradient clipping'),
+        'batch_freq': (1, 'how often to resample training graph'),
+        'max_norm': (.05, 'max norm for gradient clipping, or None for no gradient clipping'),
+        'max_norm_enc': (.1, 'max norm for graph network gradient clipping, or None for no gradient clipping'),
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
         'num_col': (1, 'number of colocation points in the time domain'),
         'batch_size': (216, 'number of nodes in test and batch graphs'),
         'sampler_batch_size': (-1, 'factor to down sample training set.'),
-        'batch_walk_len': (20, 'length of GraphSAINT sampler random walks.'),
-        'min_subgraph_size': (200, 'minimum subgraph size for training graph sampler.'),
+        'batch_walk_len': (30, 'length of GraphSAINT sampler random walks.'),
+        'min_subgraph_size': (100, 'minimum subgraph size for training graph sampler.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (2, 'factor of reduction for each pooling step'),
@@ -76,9 +76,9 @@ config_args = {
         'pool': ('HGCN', 'which model to compute coarsening matrices'),
         'func_space': ('GRF', 'function space for DeepOnet.'),
         'length_scale': (1., 'length scale for GRF'),
-        'num_func': (256, 'number of functions to sample from func_space'),
+        'num_func': (128, 'number of functions to sample from func_space'),
         'num_spl': (100, 'number of spline points for GRF'),
-        'p_basis': (512, 'size of DeepOnet basis'),
+        'p_basis': (64, 'size of DeepOnet basis'),
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
         'enc_width': (256, 'dimensions of encoder layers'),
@@ -126,7 +126,7 @@ config_args = {
 def configure(args):
     # read cached pe if loading from path
     #if args.log_path != None: args.use_cached = True
-    args.sampler_batch_size = args.batch_size//args.batch_walk_len + 10
+    args.sampler_batch_size = args.batch_size//args.batch_walk_len + 20
         
     # size of renorm/pooling graphs
     args.manifold_pool = args.manifold
