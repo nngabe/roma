@@ -6,7 +6,7 @@ from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
         'lr': (1e-5, 'learning rate'),
-        'dropout': (0.02, 'dropout probability'),
+        'dropout': (0.01, 'dropout probability'),
         'dropout_branch': (0.01, 'dropout probability in the branch net'),
         'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
         'epochs': (20000, 'number of epochs to train for'),
@@ -85,10 +85,10 @@ config_args = {
         'dec_width': (640,'dimensions of decoder layers'),
         'pde_width': (640, 'dimensions of each pde layers'),
         'pool_width': (640, 'dimensions of each pde layers'),
-        'enc_depth': (3, 'dimensions of encoder layers'),
-        'dec_depth': (6,'dimensions of decoder layers'),
+        'enc_depth': (2, 'dimensions of encoder layers'),
+        'dec_depth': (5,'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
-        'pool_depth': (5, 'dimensions of each pooling layer'),
+        'pool_depth': (4, 'dimensions of each pooling layer'),
         'enc_dims': ([-1]*3, 'dimensions of encoder layers'),
         'dec_dims': ([-1]*3,'dimensions of decoder layers'),
         'pde_dims': ([-1,-1,1], 'dimensions of each pde layers'),

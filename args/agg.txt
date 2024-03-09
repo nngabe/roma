@@ -3,9 +3,8 @@
 --agg sum 
 --agg multi 
 --agg mean 
+--agg sum 
+--agg multi 
 --manifold Euclidean 
---manifold PoincareBall 
 --w_pde 1e-20 --w_gpde 1e-20 
---w_pde 1e-20 --w_gpde 1000.0 
 --w_pde 1.0 --w_gpde 1e-20 
---w_pde 1.0 --w_gpde 1000.0 
