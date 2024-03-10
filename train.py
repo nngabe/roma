@@ -36,8 +36,8 @@ prng = lambda i=0: jax.random.PRNGKey(i)
 if __name__ == '__main__':
     args = parser.parse_args()
     args = configure(args)    
-    args.data_path = glob.glob(f'../data/x*{args.path}*')[-1]
-    args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*')[0]
+    args.data_path = glob.glob(f'../data/x*{args.path}*csv')[0]
+    args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*csv')[0]
     args.pe_path = pe_path_from(args)
 
     print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n pe path: {args.pe_path}\n')

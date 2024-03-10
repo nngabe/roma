@@ -88,7 +88,7 @@ config_args = {
         'enc_depth': (2, 'dimensions of encoder layers'),
         'dec_depth': (5,'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
-        'pool_depth': (4, 'dimensions of each pooling layer'),
+        'pool_depth': (3, 'dimensions of each pooling layer'),
         'enc_dims': ([-1]*3, 'dimensions of encoder layers'),
         'dec_dims': ([-1]*3,'dimensions of decoder layers'),
         'pde_dims': ([-1,-1,1], 'dimensions of each pde layers'),
@@ -100,25 +100,25 @@ config_args = {
         'trunk_res': (True, 'use residual connections in trunk net.'),
         'trunk_norm': (True, 'use layer norm in trunk net.'),
         'pos_emb_var': ([1/8, 1.], 'variance of transformer positional embedding at l=0 and l>0, respectively'),
-        'level_emb_var': ([1.], 'variance of transformer level embedding'),
+        'level_emb_var': ([1/2], 'variance of transformer level embedding'),
          
         # graph network params
         'res': (True, 'whether to use sum skip connections or not.'),
         'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
-        'c': (1/2, 'hyperbolic radius, set to None for trainable curvature'),
+        'c': (1/10, 'hyperbolic radius, set to None for trainable curvature'),
         'edge_conv': (True, 'use edge convolution or not'),
         'agg': ('sum', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
         'use_att': (0, 'whether to use attention in next module to be inited.'),
         'use_att_enc': (0, 'whether to use attention in encoder layers or not'),
         'use_att_pool': (0, 'whether to use attention in graph pooling layers or not'),
-        'use_layer_norm': (1, 'whether or not to use layernorm'),
+        'use_layer_norm': (0, 'whether or not to use layernorm'),
         'use_bias': (1, 'whether to use a bias in linear layers'),
         'local_agg': (1, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
-        'path': ('t1707779950','from which to infer data path'),
+        'path': ('t1708806913','from which to infer data path'),
         'log_path': (None, 'snippet from which to infer log/model path.'),
     }
 }

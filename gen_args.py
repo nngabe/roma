@@ -10,6 +10,10 @@ if batch == '':
     opts = {'manifold': ['Euclidean','PoincareBall'], 'w_pde':[1e-20, 1e+0], 'w_gpde': [1e-20, 1e+3] }
     OPTS.append(opts)
 
+elif batch == 'enc':
+    OUT_FILE = 'args/enc.txt'
+    opts = {'c':[1/10, 1/4], 'use_layer_norm': [0,1] }
+
 elif batch == 'optim':
     OUT_FILE = 'args/optim.txt'
     opts = {'weight_decay': [1e-2], 'b1': [.9], 'epochs': [10000], 'log_path': [1709754619]}
