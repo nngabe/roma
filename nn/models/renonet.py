@@ -184,6 +184,14 @@ class RenONet(eqx.Module):
         else:
             return z,z
 
+    def sMAPE(self, y, yh):
+        loss_fn = lambda y,yh: jnp.abs(y-yh)/(jnp.abs(y) + jnp.abs(yh) + 1e-16)
+        res = jax.vmap(loss_fn)(y,yh)
+        return res.mean() 
+
+    def sMASPE(self, y, yh):
+        return jnp.square(self.sMAPE(y,yh))
+
     def forward(self, x0, adj, t, y, key, mode='train'):
         keys = jr.split(key,5)
         z = self.encode(x0, adj, key=keys[0])
@@ -198,7 +206,8 @@ class RenONet(eqx.Module):
             z_dec, z_pde = self.branch(z, keys[2])
             (u, txz), grad, lap_x = jax.vmap(vgl)(tx, z_dec)
             red = jax.vmap(self.pde.reduction)(u) 
-            loss_data += jnp.square(red - y[i]).mean()
+            #loss_data += jnp.square(red - y[i]).mean()
+            loss_data += jax.vmap(self.sMASPE)(red,y[i]).mean()
             resid, gpde = jax.vmap(pde_rg)(tx, z_pde, u, grad, lap_x)
             loss_pde += jnp.square(resid).mean()
             loss_gpde += jnp.square(gpde).mean()
@@ -240,18 +249,6 @@ class RenONet(eqx.Module):
            return loss.mean(), state
         else:
             return loss.mean(0), state
-
-    def loss_scan(self, xb, adj, tb, yb, key=prng(0), mode='train', state=None):
-        n = xb.shape[0] # batch size
-        kb = jr.split(key,n) 
-        body_fun = lambda i,val: val + self.forward(xb[i], adj, tb[i], yb[i], kb[i], mode=mode)
-        loss = 0. if mode=='train' else jnp.zeros(5)
-        loss = jax.lax.fori_loop(0, n, body_fun, loss)
-        if mode=='slaw':
-            loss, state = self.slaw_update(loss, state)
-            return loss.mean(), state
-        else:
-            return loss, state
 
     def div(self, grad_x):
         return jax.vmap(jnp.trace)(grad_x)
