@@ -217,7 +217,7 @@ class RenONet(eqx.Module):
             (u, txz), grad, lap_x = jax.vmap(vgl)(tx, z_dec)
             red = jax.vmap(self.pde.reduction)(u) 
             #loss_data += jnp.square(red - y[i]).mean()
-            loss_data += jax.vmap(self.sMASPE)(red,y[i])
+            loss_data += jax.vmap(self.sMASPE)(red,y[i]).mean()
             resid, gpde = jax.vmap(pde_rg)(tx, z_pde, u, grad, lap_x)
             loss_pde += jnp.square(resid).mean()
             loss_gpde += jnp.square(gpde).mean()
