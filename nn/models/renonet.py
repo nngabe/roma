@@ -185,12 +185,20 @@ class RenONet(eqx.Module):
             return z,z
 
     def sMAPE(self, y, yh):
-        loss_fn = lambda y,yh: jnp.abs(y-yh)/(jnp.abs(y) + jnp.abs(yh) + 1e-16)
-        res = jax.vmap(loss_fn)(y,yh)
+        loss_fn =  lambda y, yh: jnp.abs(y-yh)/(jnp.abs(y) + jnp.abs(yh) + 1e-16)
+        if len(y.shape)>1:
+            res = jax.vmap(loss_fn)(y,yh)
+        else:
+            res = loss_fn(y,yh) 
         return res.mean() 
 
     def sMASPE(self, y, yh):
-        return jnp.square(self.sMAPE(y,yh))
+        loss_fn =  lambda y, yh: jnp.abs(y-yh)/(jnp.abs(y) + jnp.abs(yh) + 1e-16)
+        if len(y.shape)>1:
+            res = jax.vmap(loss_fn)(y,yh)
+        else:
+            res = loss_fn(y,yh) 
+        return jnp.square(res).mean() 
 
     def forward(self, x0, adj, t, y, key, mode='train'):
         keys = jr.split(key,5)
@@ -202,19 +210,22 @@ class RenONet(eqx.Module):
         loss_data = loss_pde = loss_gpde = 0.
         vgl = lambda tx,z: self.val_grad_lap(tx, z, keys[i])
         pde_rg = lambda tx, z, u, grad, lap_x: self.pde_res_grad(tx, z, u, grad, lap_x, keys[i])
-        for i in range(y.shape[0]):
+        
+        m = y.shape[0]
+        for i in range(m):
             z_dec, z_pde = self.branch(z, keys[2])
             (u, txz), grad, lap_x = jax.vmap(vgl)(tx, z_dec)
             red = jax.vmap(self.pde.reduction)(u) 
             #loss_data += jnp.square(red - y[i]).mean()
-            loss_data += jax.vmap(self.sMASPE)(red,y[i]).mean()
+            loss_data += jax.vmap(self.sMASPE)(red,y[i])
             resid, gpde = jax.vmap(pde_rg)(tx, z_pde, u, grad, lap_x)
             loss_pde += jnp.square(resid).mean()
             loss_gpde += jnp.square(gpde).mean()
-            t_ += 1.
-            tx = jnp.concatenate([t_,x], axis=-1)
-            x = jnp.concatenate([z[:,1:self.kappa], red.reshape(-1,1)], axis=-1)
-            z = z.at[:,:self.kappa].set(x)
+            if i < (m - 1): 
+                t_ += 1.
+                tx = jnp.concatenate([t_,x], axis=-1)
+                x = jnp.concatenate([z[:,1:self.kappa], red.reshape(-1,1)], axis=-1)
+                z = z.at[:,:self.kappa].set(x)
 
         if mode=='train':
             loss = self.w_data * loss_data + self.w_pde * loss_pde + self.w_gpde * loss_gpde + self.w_ent * loss_ent
