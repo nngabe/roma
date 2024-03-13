@@ -7,7 +7,25 @@ OPTS = []
 
 if batch == '':
     OUT_FILE = 'args/base.txt'
-    opts = {'manifold': ['Euclidean','PoincareBall'], 'w_pde':[1e-20, 1e+0], 'w_gpde': [1e-20, 1e+3] }
+    opts = {'manifold': ['Euclidean','PoincareBall']} 
+    OPTS.append(opts)
+    opts = {'w_pde':[1e-20], 'w_gpde': [1e-20]}
+    OPTS.append(opts)
+    opts = {'decoder':['MLP']}
+    OPTS.append(opts)
+
+elif batch == 'scaling':
+    OUT_FILE = 'args/scaling.txt'
+    opts = {'manifold': ['Euclidean','PoincareBall'], 'path': ['t1708805081', 't1708806913', 't1708812316']}
+    OPTS.append(opts)
+    opts = {'w_pde':[1e-20], 'w_gpde': [1e-20], 'path': ['t1708805081', 't1708806913', 't1708812316']}
+    OPTS.append(opts)
+
+elif batch == 'uncertainty':
+    OUT_FILE = 'args/uncertainty.txt'
+    opts = {'manifold': ['Euclidean','PoincareBall'], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
+    OPTS.append(opts)
+    opts = {'w_pde':[1e-20], 'w_gpde': [1e-20], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
     OPTS.append(opts)
 
 elif batch == 'enc':
@@ -53,9 +71,9 @@ print(f'out file: {OUT_FILE}')
 
 if __name__ == '__main__':
     
-    ### take the cartesian product of all opts and write 
-    ### arg strings (e.g. --model MLP --dropout 0.6 ...) to file
-    #OUT_FILE = sys.argv[1] if len(sys.argv)>1 else 'args.txt'
+    ### take the cartesian product of all opts and write arg
+    ### strings (e.g. --model MLP --dropout 0.6 ...) to file given by:
+    ### OUT_FILE = sys.argv[1] if len(sys.argv)>1 else 'args.txt'
     
     if len(OPTS)==0:
         vals = list(itertools.product(*opts.values()))

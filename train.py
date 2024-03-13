@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
         
         print(f' optim(lr,b1,b2,wd) = {args.optim}(lr={args.lr}, b1={args.b1}, b2={args.b2}, wd={args.weight_decay})')
-        print(f' w[data,pde,gpde,ent] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ent:.0e})')
+        print(f' w[data,pde,gpde,ms] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ms:.0e})')
         print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})\n')
     
     lr = args.lr
@@ -231,11 +231,12 @@ if __name__ == '__main__':
             
             x, adj, pe = x_test, adj_test, pe_test
             loss, model = loss_test(model, x, adj, pe)
-            log['loss'][i] = [loss[0].item(), loss[1].item(), loss[2].item(), loss[3].item(), loss[4].item()]
+            log['loss'][i] = [loss[0].item(), loss[1].item(), loss[2].item(), loss[3].item(), loss[4].item(), loss[5].item(), loss[6].item()]
             
             if args.verbose:
-                print(f'{i:04d}/{args.epochs} : l_data = ({loss[0]:.2e}, {loss[1]:.2e}), l_pde = {loss[2]:.2e},' 
-                      f' l_gpde = {loss[3]:.2e},  l_ent = {loss[4]:.2e};' 
+                print(f'{i:04d}/{args.epochs} : l_data = ({loss[0]:.2e}, {loss[1]:.2e}),'
+                      f' l_pde = ({loss[2]:.2e}, {loss[3]:.2e}),' 
+                      f' l_ms = ({loss[4]:.2e}, {loss[5]:.2e}, {loss[6]:.2e}); ' 
                       f' lr = {schedule(i).item():.2e} (time: {time.time()-tic:.1f} s)')
             tic = time.time()
             

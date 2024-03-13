@@ -23,7 +23,8 @@ class RenONet(eqx.Module):
     w_data: jnp.float32 = eqx.field(static=True)
     w_pde: jnp.float32 = eqx.field(static=True)
     w_gpde: jnp.float32 = eqx.field(static=True)
-    w_ent: jnp.float32 = eqx.field(static=True)
+    w_ms: jnp.float32 = eqx.field(static=True)
+    w_pool: jnp.ndarray = eqx.field(static=True)
     x_dim: int
     coord_dim: int
     pool_dims: List[int]
@@ -49,7 +50,8 @@ class RenONet(eqx.Module):
         self.w_data = args.w_data
         self.w_pde = args.w_pde
         self.w_gpde = args.w_gpde
-        self.w_ent = args.w_ent
+        self.w_ms = args.w_ms
+        self.w_pool = args.w_pool
         self.x_dim = args.x_dim
         self.coord_dim = args.coord_dim
         self.pool_dims = args.pool_size 
@@ -114,6 +116,7 @@ class RenONet(eqx.Module):
         z_r = x
         y_r = y
         A[0] = jnp.zeros(x.shape[:1]*2).at[adj[0],adj[1]].set(1.)
+        loss_pool = jnp.array([0.,0.,0.])
         for i in self.pool.keys():
             z,s = self.embed_pool(x, adj, w, i, key)
             s = jax.vmap(self.ln_pool[i])(self.log(s))
@@ -125,17 +128,17 @@ class RenONet(eqx.Module):
             adj, w = dense_to_coo(A[i])
             z_r = jnp.concatenate([z_r, x], axis=0)
             y_r = jnp.concatenate([y_r, y], axis=-1)
-            loss_ent += jax.scipy.special.entr(S[i]).mean()
+            loss_pool = loss_pool.at[0].add( self.w_pool[0] * jax.scipy.special.entr(S[i]).mean())
+            loss_pool = loss_pool.at[1].add( self.w_pool[1] * jax.scipy.special.entr(A[i+1]).mean())
+            loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', S[i], S[i])).mean())
             key = jr.split(key)[0]
 
         if mode == 'train':
-            return z_r, y_r, loss_ent, None, None
-        elif mode == 'fwd' or mode == 'report':
-            return z_r, y_r, loss_ent, S, A
-        elif mode == 'fwd_no_renorm' or mode == 'test':
-            return x, y, loss_ent, None, None
+            return z_r, y_r, loss_pool.sum(), None, None
+        elif mode == 'report':
+            return z_r, y_r, loss_pool, S, A
         else:
-            return z_r, y_r, loss_ent, S, A
+            return z_r, y_r, loss_pool, S, A
 
     def decode(self, tx, z, key):
         #t = self.time_encode(tx[:1])
@@ -203,7 +206,7 @@ class RenONet(eqx.Module):
     def forward(self, x0, adj, t, y, key, mode='train'):
         keys = jr.split(key,5)
         z = self.encode(x0, adj, key=keys[0])
-        z, y, loss_ent, S, A = self.renorm(z, adj, y, key=keys[1], mode=mode) 
+        z, y, loss_pool, S, A = self.renorm(z, adj, y, key=keys[1], mode=mode) 
         x = jnp.zeros((z.shape[0], self.x_dim))
         t_ = t * jnp.ones((z.shape[0],1))
         tx = jnp.concatenate([t_,x], axis=-1)
@@ -228,12 +231,12 @@ class RenONet(eqx.Module):
                 z = z.at[:,:self.kappa].set(x)
 
         if mode=='train':
-            loss = self.w_data * loss_data + self.w_pde * loss_pde + self.w_gpde * loss_gpde + self.w_ent * loss_ent
+            loss = self.w_data * loss_data + self.w_pde * loss_pde + self.w_gpde * loss_gpde + self.w_ms * loss_pool
             return loss        
-        if mode=='report' or mode=='test': 
-            loss_data = jnp.square(red - y[0])
+        if mode=='report': 
+            loss_data = jax.vmap(self.sMASPE)(red,y[i])
             loss_data = loss_data[:self.batch_size].mean(), loss_data[self.batch_size:].mean()
-            return jnp.array([loss_data[0], loss_data[1], loss_pde, loss_gpde, loss_ent])
+            return jnp.array([loss_data[0], loss_data[1], loss_pde, loss_gpde, loss_pool[0], loss_pool[1], loss_pool[2]])
         elif mode=='inference': 
             return u, red, z, y, grad, S, A 
     
@@ -246,7 +249,7 @@ class RenONet(eqx.Module):
         w = loss.shape[0] / s / (1./s).sum()
         w = w/w.min()
         loss = w * loss
-        loss = self.w_data * loss[0] + self.w_pde * loss[1] + self.w_gpde * loss[2] + self.w_ent * loss[3] 
+        loss = self.w_data * loss[0] + self.w_pde * loss[1] + self.w_gpde * loss[2] + self.w_ms * loss[3] 
         state['a'], state['b'] = a,b
         return loss, state 
   
