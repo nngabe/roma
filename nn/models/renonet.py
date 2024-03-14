@@ -120,7 +120,9 @@ class RenONet(eqx.Module):
         for i in self.pool.keys():
             z,s = self.embed_pool(x, adj, w, i, key)
             s = jax.vmap(self.ln_pool[i])(self.log(s))
-            S[i] = jax.nn.softmax(s, axis=0)
+            s = jax.nn.softmax(s, axis=0)
+            s = s/jnp.linalg.norm(s, axis=1, keepdims=True)
+            S[i] = s
             m,n = S[i].shape
             x = jnp.einsum('ij,ik -> jk', S[i], z) * (n/m)
             y = jnp.einsum('ij,ki -> kj', S[i], y) * (n/m)
