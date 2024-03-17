@@ -35,7 +35,10 @@ prng = lambda i=0: jax.random.PRNGKey(i)
 
 if __name__ == '__main__':
     args = parser.parse_args()
+    print(f'  pos_emb_var = {args.pos_emb_var}, level_emb_var = {args.level_emb_var}')
     args = configure(args)    
+    print(f'  pos_emb_var = {args.pos_emb_var}, level_emb_var = {args.level_emb_var}')
+
     args.data_path = glob.glob(f'../data/x*{args.path}*csv')[0]
     args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*csv')[0]
     args.pe_path = pe_path_from(args)
@@ -96,9 +99,6 @@ if __name__ == '__main__':
         print(f'\n MODULE: MODEL[DIMS](curv)')
         print(f'  encoder: {args.encoder}{args.enc_dims}{args.manifold[:3]}(c={args.c})')
         print(f'  decoder: {args.decoder}{args.dec_dims}')
-        print(f'  pde: {args.pde}/{args.decoder}{args.pde_dims}')
-        print(f'  func_space: {args.func_space}(l={args.length_scale})')
-        print(f'  branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
         print(f'  pool:')
         for i in model.pool.pools.keys(): 
             pdims = args.pool_dims
@@ -107,7 +107,11 @@ if __name__ == '__main__':
         print(f'  embed:')
         for i in model.pool.pools.keys(): 
             print(f'   embed_{i}: {args.pool}{args.embed_dims}')
-        print(f' time_enc: fourier[{args.coord_dim}][t_var={args.t_var},x_var={args.x_var}]\n')
+        print(f'  func_space: {args.func_space}(l={args.length_scale})')
+        print(f'  branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
+        print(f'  pos_emb_var = {args.pos_emb_var}, level_emb_var = {args.level_emb_var}')
+        print(f'  pde: {args.pde}/{args.decoder}{args.pde_dims}')
+        print(f'  time_enc: fourier[{args.coord_dim}][t_var={args.t_var},x_var={args.x_var}]\n')
      
     log = {}
     log['args'] = vars(copy.copy(args))
@@ -131,9 +135,9 @@ if __name__ == '__main__':
     schedule_cos = optax.join_schedules(schedules=
         [
           optax.warmup_cosine_decay_schedule(
-              init_value=lr*1e-3,
+              init_value=lr*1e-2,
               peak_value=lr * 10**-(1.5 * i/num_cycles),
-              end_value=lr*1e-3,
+              end_value=lr*1e-2,
               warmup_steps=warmup_steps,
               decay_steps=(cycle_length - warmup_steps)*1.6) 
           for i in range(num_cycles)
@@ -143,9 +147,9 @@ if __name__ == '__main__':
     schedule = optax.join_schedules(schedules=
         [
           optax.warmup_exponential_decay_schedule(
-              init_value=lr*2e-3,
+              init_value=lr*1e-2,
               peak_value=lr * 10**-(1.5 * i/num_cycles),
-              end_value=lr*2e-3,
+              end_value=lr*1e-2,
               warmup_steps=warmup_steps, 
               transition_steps=(cycle_length - warmup_steps)*2.2, 
               decay_rate = 1e-6) for i in range(num_cycles)

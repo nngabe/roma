@@ -20,6 +20,8 @@ elif batch == 'scaling':
     OPTS.append(opts)
     opts = {'w_pde':[1e-20], 'w_gpde': [1e-20], 'path': ['t1708805081', 't1708806913', 't1708812316']}
     OPTS.append(opts)
+    opts = {'decoder': ['ResNet'], 'path': ['t1708805081', 't1708806913', 't1708812316']}
+    OPTS.append(opts)
 
 elif batch == 'uncertainty':
     OUT_FILE = 'args/uncertainty.txt'
@@ -31,6 +33,11 @@ elif batch == 'uncertainty':
 elif batch == 'enc':
     OUT_FILE = 'args/enc.txt'
     opts = {'c':[1/10, 1/4], 'use_layer_norm': [0,1] }
+
+elif batch == 'embed':
+    OUT_FILE = 'args/embed.txt'
+    opts = {'pos_emb_var': [0, 1], 'level_emb_var': [0, 1]}
+    OPTS.append(opts) 
 
 elif batch == 'optim':
     OUT_FILE = 'args/optim.txt'

@@ -119,10 +119,11 @@ class RenONet(eqx.Module):
         loss_pool = jnp.array([0.,0.,0.])
         for i in self.pool.keys():
             z,s = self.embed_pool(x, adj, w, i, key)
-            s = jax.vmap(self.ln_pool[i])(self.log(s))
-            s = jax.nn.softmax(s, axis=0)
-            s = s/jnp.linalg.norm(s, axis=1, keepdims=True)
-            S[i] = s
+            s = self.log(s)
+            s = jax.vmap(self.ln_pool[i])(s)
+            #s = jax.nn.softmax(s, axis=0)
+            s = s/jnp.linalg.norm(s, axis=0, keepdims=True)
+            S[i] = s**2
             m,n = S[i].shape
             x = jnp.einsum('ij,ik -> jk', S[i], z) * (n/m)
             y = jnp.einsum('ij,ki -> kj', S[i], y) * (n/m)
@@ -132,7 +133,7 @@ class RenONet(eqx.Module):
             y_r = jnp.concatenate([y_r, y], axis=-1)
             loss_pool = loss_pool.at[0].add( self.w_pool[0] * jax.scipy.special.entr(S[i]).mean())
             loss_pool = loss_pool.at[1].add( self.w_pool[1] * jax.scipy.special.entr(A[i+1]).mean())
-            loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', S[i], S[i])).mean())
+            loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', s, s)).mean())
             key = jr.split(key)[0]
 
         if mode == 'train':

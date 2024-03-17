@@ -259,6 +259,40 @@ class MLP(eqx.Module):
             key = jr.split(key)[0]
         return x
 
+class ResNet(eqx.Module):
+    layers: List[eqx.Module]
+    lin: List[eqx.Module] 
+    res: bool
+    norm: bool
+    def __init__(self, args, module):
+        in_dim = args.dec_dims
+        out_dim = args.dec_dims
+        width = getattr(args, module + '_width')
+        depth = getattr(args, module + '_depth')
+        dropout_rate = args.dropout_trunk
+        
+        keys = jr.split(prng(), depth + 2 )
+        self.res = args.trunk_res
+        self.norm = args.trunk_norm
+        dims = [in_dim] + depth * [width] + [out_dim]
+        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(self.num_layers+1)]
+        self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers+1) ]
+
+    def __call__(self, x, key):
+
+        for res,layer in zip(self.lin,self.layers):
+            if self.res:
+                f = lambda x: layer(x,key) + res(x)
+            else:
+                f = lambda x: layer(x,key)
+            if len(x.shape)==1:
+                x = f(x)
+            if len(x.shape)==2:
+                x = jax.vmap(f)(x)
+            key = jr.split(key)[0]
+        return x
+
+
 
 class DeepOnet(eqx.Module):
     

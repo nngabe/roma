@@ -9,7 +9,7 @@ config_args = {
         'dropout': (0.01, 'dropout probability'),
         'dropout_branch': (0.01, 'dropout probability in the branch net'),
         'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
-        'epochs': (40000, 'number of epochs to train for'),
+        'epochs': (60000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('nadamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -31,7 +31,7 @@ config_args = {
         'min_subgraph_size': (100, 'minimum subgraph size for training graph sampler.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'batch_red': (2, 'factor of reduction for batch size'),
-        'pool_red': (2, 'factor of reduction for each pooling step'),
+        'pool_red': (4, 'factor of reduction for each pooling step'),
         'pool_steps': (2, 'number of pooling steps'),
         'eta_var': (1e-6, 'variance of multiplicative noise'),
     },
@@ -45,7 +45,7 @@ config_args = {
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
         'w_ms': (1e-3, 'weight for assignment matrix entropy loss.'),
-        'w_pool': ([1e+0, 1e-2, 1e+1], 'weights for S entropy, A entropy, and LP respectively.'),
+        'w_pool': ([1e+0, 1e-1, 1e+1], 'weights for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
@@ -100,8 +100,8 @@ config_args = {
         'num_heads': (8, 'number of heads in transformer blocks.'),
         'trunk_res': (True, 'use residual connections in trunk net.'),
         'trunk_norm': (True, 'use layer norm in trunk net.'),
-        'pos_emb_var': ([1/4, 1.], 'variance of transformer positional embedding at l=0 and l>0, respectively'),
-        'level_emb_var': ([1/2], 'variance of transformer level embedding'),
+        'pos_emb_var': (0, 'variance of transformer positional embedding at l=0 and l>0, respectively'),
+        'level_emb_var': (0, 'variance of transformer level embedding'),
          
         # graph network params
         'res': (True, 'whether to use sum skip connections or not.'),
@@ -125,13 +125,24 @@ config_args = {
 }
 
 def configure(args):
+
+    if args.pos_emb_var == 1: 
+        args.pos_emb_var = [1/4, 1.]
+    else: 
+        args.pos_emb_var = [1., 1.]
+    
+    if args.level_emb_var == 1: 
+        args.level_emb_var = [1/4]
+    else:
+        args.level_emb_var = [1.]
+
     # read cached pe if loading from path
     #if args.log_path != None: args.use_cached = True
     args.sampler_batch_size = args.batch_size//args.batch_walk_len + 20
         
     # size of renorm/pooling graphs
     args.manifold_pool = args.manifold
-    args.pool_size = [64//args.pool_red**i for i in range(0,args.pool_steps)]
+    args.pool_size = [32//args.pool_red**i for i in range(0,args.pool_steps)]
     args.num_nodes = args.batch_size + sum(args.pool_size)
     
     # pe dims
