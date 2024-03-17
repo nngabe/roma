@@ -263,14 +263,14 @@ class ResNet(eqx.Module):
     layers: List[eqx.Module]
     lin: List[eqx.Module] 
     res: bool
-    norm: bool
+    
     def __init__(self, args, module):
         args, dims, _, _ = get_dim_act(args,module)
         dropout_rate = args.dropout_trunk
+        norm = args.trunk_norm
         
         keys = jr.split(prng(), args.num_layers + 2 )
         self.res = args.trunk_res
-        self.norm = args.trunk_norm
         self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(args.num_layers+1)]
         self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(args.num_layers+1)]
 
