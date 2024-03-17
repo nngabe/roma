@@ -208,7 +208,7 @@ class Transformer(eqx.Module):
             l1,l2 = dim, self.level_dims[i+1]
             level_emb_scaler = self.level_emb_var[0] ** i
             res = res.at[l1:l2].add(self.level_embedding[i] * level_emb_scaler)
-        return x
+        return res
 
     def __call__(self, x, key, inspect=False):
         if inspect: attn = []
@@ -271,8 +271,8 @@ class ResNet(eqx.Module):
         
         keys = jr.split(prng(), args.num_layers + 2 )
         self.res = args.trunk_res
-        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(args.num_layers+1)]
-        self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(args.num_layers+1)]
+        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(args.num_layers)]
+        self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(args.num_layers)]
 
     def __call__(self, x, key):
 
