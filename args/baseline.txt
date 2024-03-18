@@ -1,0 +1,32 @@
+--manifold Euclidean --path t1708805081 
+--manifold Euclidean --path t1708806913 
+--manifold Euclidean --path t1708812316 
+--manifold PoincareBall --path t1708805081 
+--manifold PoincareBall --path t1708806913 
+--manifold PoincareBall --path t1708812316 
+--w_pde 1e-20 --w_gpde 1e-20 --path t1708805081 
+--w_pde 1e-20 --w_gpde 1e-20 --path t1708806913 
+--w_pde 1e-20 --w_gpde 1e-20 --path t1708812316 
+--decoder ResNet --path t1708805081 
+--decoder ResNet --path t1708806913 
+--decoder ResNet --path t1708812316 
+--manifold Euclidean --eta_var 2.5e-05 
+--manifold Euclidean --eta_var 0.0001 
+--manifold Euclidean --eta_var 0.0004 
+--manifold Euclidean --eta_var 0.0025 
+--manifold Euclidean --eta_var 0.01 
+--manifold PoincareBall --eta_var 2.5e-05 
+--manifold PoincareBall --eta_var 0.0001 
+--manifold PoincareBall --eta_var 0.0004 
+--manifold PoincareBall --eta_var 0.0025 
+--manifold PoincareBall --eta_var 0.01 
+--w_pde 1e-20 --w_gpde 1e-20 --eta_var 2.5e-05 
+--w_pde 1e-20 --w_gpde 1e-20 --eta_var 0.0001 
+--w_pde 1e-20 --w_gpde 1e-20 --eta_var 0.0004 
+--w_pde 1e-20 --w_gpde 1e-20 --eta_var 0.0025 
+--w_pde 1e-20 --w_gpde 1e-20 --eta_var 0.01 
+--decoder ResNet --eta_var 2.5e-05 
+--decoder ResNet --eta_var 0.0001 
+--decoder ResNet --eta_var 0.0004 
+--decoder ResNet --eta_var 0.0025 
+--decoder ResNet --eta_var 0.01 

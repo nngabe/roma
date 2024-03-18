@@ -162,6 +162,7 @@ def configure(args):
     args.pde_dims[1:-1] = (args.pde_depth-1) * [args.pde_width]
     args.pool_dims[1:-1] = (args.pool_depth-1) * [args.pool_width]
     args.embed_dims[1:-1] = (args.pool_depth-1) * [args.pool_width]
+
     if args.res: 
         enc_out = sum(args.enc_dims) 
         args.dec_dims[0] = enc_out + (1 + args.x_dim) * args.coord_dim

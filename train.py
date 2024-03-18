@@ -98,7 +98,6 @@ if __name__ == '__main__':
     if args.verbose: 
         print(f'\n MODULE: MODEL[DIMS](curv)')
         print(f'  encoder: {args.encoder}{args.enc_dims}{args.manifold[:3]}(c={args.c})')
-        print(f'  decoder: {args.decoder}{args.dec_dims}')
         print(f'  pool:')
         for i in model.pool.pools.keys(): 
             pdims = args.pool_dims
@@ -107,11 +106,13 @@ if __name__ == '__main__':
         print(f'  embed:')
         for i in model.pool.pools.keys(): 
             print(f'   embed_{i}: {args.pool}{args.embed_dims}')
-        print(f'  func_space: {args.func_space}(l={args.length_scale})')
-        print(f'  branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
-        print(f'  pos_emb_var = {args.pos_emb_var}, level_emb_var = {args.level_emb_var}')
+        print(f'  decoder: {args.decoder}{args.dec_dims}')
         print(f'  pde: {args.pde}/{args.decoder}{args.pde_dims}')
-        print(f'  time_enc: fourier[{args.coord_dim}][t_var={args.t_var},x_var={args.x_var}]\n')
+        if args.decoder == 'DeepOnet':
+            print(f'  func_space: {args.func_space}(l={args.length_scale})')
+            print(f'  branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
+            print(f'  pos_emb_var = {args.pos_emb_var}, level_emb_var = {args.level_emb_var}')
+            print(f'  time_enc: fourier[{args.coord_dim}][t_var={args.t_var},x_var={args.x_var}]\n')
      
     log = {}
     log['args'] = vars(copy.copy(args))

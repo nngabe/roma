@@ -14,6 +14,21 @@ if batch == '':
     opts = {'decoder':['MLP']}
     OPTS.append(opts)
 
+elif batch == 'baseline':
+    OUT_FILE = 'args/baseline.txt'
+    opts = {'manifold': ['Euclidean','PoincareBall'], 'path': ['t1708805081', 't1708806913', 't1708812316']}
+    OPTS.append(opts)
+    opts = {'w_pde':[1e-20], 'w_gpde': [1e-20], 'path': ['t1708805081', 't1708806913', 't1708812316']}
+    OPTS.append(opts)
+    opts = {'decoder': ['ResNet'], 'path': ['t1708805081', 't1708806913', 't1708812316']}
+    OPTS.append(opts)
+    opts = {'manifold': ['Euclidean','PoincareBall'], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
+    OPTS.append(opts)
+    opts = {'w_pde':[1e-20], 'w_gpde': [1e-20], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
+    OPTS.append(opts)
+    opts = {'decoder': ['ResNet'], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
+    OPTS.append(opts)
+
 elif batch == 'scaling':
     OUT_FILE = 'args/scaling.txt'
     opts = {'manifold': ['Euclidean','PoincareBall'], 'path': ['t1708805081', 't1708806913', 't1708812316']}
@@ -60,10 +75,6 @@ elif batch == 'clip':
 elif batch == 'agg':
     OUT_FILE = 'args/agg.txt'
     opts = {'agg': ['multi', 'mean', 'sum']}
-    OPTS.append(opts)
-    opts = {'manifold': ['Euclidean','PoincareBall']}
-    OPTS.append(opts)
-    opts = {'w_pde':[1e-20, 1e+0], 'w_gpde': [1e-20, 1e+3]}
     OPTS.append(opts)
 
 elif batch == 'adam':

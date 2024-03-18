@@ -80,31 +80,6 @@ class GraphNet(eqx.Module):
         else:
             return self.log(x)
 
-class ResNet(eqx.Module):
-    layers: List[eqx.Module]
-    res: bool
-    lin: List[eqx.Module] 
-    def __init__(self, in_dim, out_dim, width, dropout_rate, depth=4, key=prng(), res=True, norm=True):
-        keys = jr.split(key, depth + 2 )
-        self.res = res
-        dims = [in_dim] + depth * [width] + [out_dim]
-        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(self.num_layers+1)]
-        self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers+1) ]
-
-    def __call__(self, x, key):
-
-        for res,layer in zip(self.lin,self.layers):
-            if self.res:
-                f = lambda x: layer(x,key) + res(x)
-            else:
-                f = lambda x: layer(x,key)
-            if len(x.shape)==1:
-                x = f(x)
-            if len(x.shape)==2:
-                x = jax.vmap(f)(x)
-            key = jr.split(key)[0]
-        return x
-
 
 class AttentionBlock(eqx.Module):
     layer_norm1: eqx.nn.LayerNorm
@@ -271,8 +246,8 @@ class ResNet(eqx.Module):
         
         keys = jr.split(prng(), args.num_layers + 2 )
         self.res = args.trunk_res
-        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(args.num_layers)]
-        self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(args.num_layers)]
+        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(args.num_layers - 1)]
+        self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(args.num_layers - 1)]
 
     def __call__(self, x, key):
 
