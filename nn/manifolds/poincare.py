@@ -23,7 +23,7 @@ class PoincareBall(Manifold):
     def __init__(self, ):
         super(PoincareBall, self).__init__()
         self.name = 'PoincareBall'
-        self.min_norm = 1e-7
+        self.min_norm = 1e-15
         self.eps = 1e-5
 
     def sqdist(self, p1, p2, c):

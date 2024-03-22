@@ -35,9 +35,7 @@ prng = lambda i=0: jax.random.PRNGKey(i)
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    print(f'  pos_emb_var = {args.pos_emb_var}, level_emb_var = {args.level_emb_var}')
     args = configure(args)    
-    print(f'  pos_emb_var = {args.pos_emb_var}, level_emb_var = {args.level_emb_var}')
 
     args.data_path = glob.glob(f'../data/x*{args.path}*csv')[0]
     args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*csv')[0]
@@ -93,7 +91,7 @@ if __name__ == '__main__':
         model, args = utils.read_model(args)
     else:
         model = RenONet(args)
-        model = utils.init_he(model, prng(123))
+        model = utils.init_ortho(model, prng(123))
 
     if args.verbose: 
         print(f'\n MODULE: MODEL[DIMS](curv)')

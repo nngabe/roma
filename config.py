@@ -9,13 +9,13 @@ config_args = {
         'dropout': (0.01, 'dropout probability'),
         'dropout_branch': (0.01, 'dropout probability in the branch net'),
         'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
-        'epochs': (60000, 'number of epochs to train for'),
+        'epochs': (40000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('nadamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
         'b1': (.9, 'coefficient for first moment in adam'),
         'b2': (.999, 'coefficient for second moment in adam'),
-        'weight_decay': (1e-4, 'l2 regularization strength'),
+        'weight_decay': (2e-4, 'l2 regularization strength'),
         'epsilon': (1e-8, 'epsilon in adam denominator'),
         'beta': (.99, 'moving average coefficient for SLAW'),
         'log_freq': (100, 'how often to compute print train/val metrics (in epochs)'),
@@ -44,8 +44,8 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
-        'w_ms': (1e-3, 'weight for assignment matrix entropy loss.'),
-        'w_pool': ([1e+0, 1e-1, 1e+1], 'weights for S entropy, A entropy, and LP respectively.'),
+        'w_ms': (5e-4, 'weight for assignment matrix entropy loss.'),
+        'w_pool': ([1e+0, 5e-1, 1e+1], 'weights for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
@@ -97,6 +97,8 @@ config_args = {
         'embed_dims': ([-1]*3, 'dimensions of embedding layers.'),
 
         # DeepONet params
+        'trunk_net': ('MLP', 'trunk network architecture.'),
+        'branch_net': ('Transformer', 'branch net architecture.'),
         'num_heads': (8, 'number of heads in transformer blocks.'),
         'trunk_res': (True, 'use residual connections in trunk net.'),
         'trunk_norm': (True, 'use layer norm in trunk net.'),
@@ -107,7 +109,7 @@ config_args = {
         'res': (True, 'whether to use sum skip connections or not.'),
         'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
-        'c': (1/10, 'hyperbolic radius, set to None for trainable curvature'),
+        'c': (1/2, 'hyperbolic radius, set to None for trainable curvature'),
         'edge_conv': (True, 'use edge convolution or not'),
         'agg': ('sum', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
@@ -127,9 +129,11 @@ config_args = {
 def configure(args):
 
     if args.pos_emb_var == 1: 
-        args.pos_emb_var = [1/4, 1.]
+        args.pos_emb_var = [1/2, 1.]
+    elif args.pos_emb_var == 2: 
+        args.pos_emb_var = [1/8, 1.]
     else: 
-        args.pos_emb_var = [1., 1.]
+        args.pos_emb_var = [1/4, 1.]
     
     if args.level_emb_var == 1: 
         args.level_emb_var = [1/4]

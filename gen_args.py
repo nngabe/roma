@@ -7,22 +7,29 @@ OPTS = []
 
 if batch == '':
     OUT_FILE = 'args/base.txt'
-    opts = {'manifold': ['Euclidean','PoincareBall']} 
+    opts = {'manifold': ['PoincareBall'], 'w_ms': [1e-4]} 
+    OPTS.append(opts)
+    opts = {'manifold': ['Euclidean']} 
     OPTS.append(opts)
     opts = {'w_pde':[1e-20], 'w_gpde': [1e-20]}
     OPTS.append(opts)
-    opts = {'decoder':['MLP']}
+    opts = {'decoder':['ResNet']}
     OPTS.append(opts)
 
 elif batch == 'baseline':
     OUT_FILE = 'args/baseline.txt'
-    opts = {'manifold': ['Euclidean','PoincareBall'], 'path': ['t1708805081', 't1708806913', 't1708812316']}
+    opts = {'manifold': ['PoincareBall'], 'path': ['t1708805081', 't1708806913', 't1708808123'], 'w_ms': [1e-4]}
     OPTS.append(opts)
-    opts = {'w_pde':[1e-20], 'w_gpde': [1e-20], 'path': ['t1708805081', 't1708806913', 't1708812316']}
+    opts = {'manifold': ['Euclidean'], 'path': ['t1708805081', 't1708806913', 't1708808123']}
     OPTS.append(opts)
-    opts = {'decoder': ['ResNet'], 'path': ['t1708805081', 't1708806913', 't1708812316']}
+    opts = {'w_pde':[1e-20], 'w_gpde': [1e-20], 'path': ['t1708805081', 't1708806913', 't1708808123']}
     OPTS.append(opts)
-    opts = {'manifold': ['Euclidean','PoincareBall'], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
+    opts = {'decoder': ['ResNet'], 'path': ['t1708805081', 't1708806913', 't1708808123']}
+    OPTS.append(opts)
+
+    opts = {'manifold': ['PoincareBall'], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
+    OPTS.append(opts)
+    opts = {'manifold': ['Euclidean'], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
     OPTS.append(opts)
     opts = {'w_pde':[1e-20], 'w_gpde': [1e-20], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
     OPTS.append(opts)

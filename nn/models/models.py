@@ -49,18 +49,13 @@ class GraphNet(eqx.Module):
         self.euclidean = True if args.manifold=='Euclidean' else False
 
     def exp(self, x):
-        if self.euclidean: 
-            return x
         x = self.manifold.proj_tan0(x, c=self.c)
         x = self.manifold.expmap0(x, c=self.c)
         x = self.manifold.proj(x, c=self.c)
         return x
 
     def log(self, y):
-        if self.euclidean:
-            return y
         y = self.manifold.logmap0(y, self.c)
-        y = y * jnp.sqrt(self.c) * 1.47#63057
         return y
 
     def __call__(self, x, adj, key, w):
@@ -102,7 +97,7 @@ class AttentionBlock(eqx.Module):
 
         self.layer_norm1 = eqx.nn.LayerNorm(input_shape)
         self.layer_norm2 = eqx.nn.LayerNorm(input_shape)
-        self.attention = eqx.nn.MultiheadAttention(num_heads, input_shape, key=keys[0])
+        self.attention = eqx.nn.MultiheadAttention(num_heads, input_shape, key=keys[0], use_output_bias=False)
 
         self.linear1 = eqx.nn.Linear(input_shape, hidden_dim, key=keys[1])
         self.linear2 = eqx.nn.Linear(hidden_dim, input_shape, key=keys[2])
@@ -299,8 +294,8 @@ class DeepOnet(eqx.Module):
         self.trunk_dims[0] = dims[0] - self.u_dim 
         self.trunk_dims[-1] = self.p_dim
 
-        self.branch = Transformer(self.branch_dims[0], self.branch_dims[-1], args, keys[0])
-        self.trunk = MLP(self.trunk_dims[0], self.trunk_dims[-1], args, keys[1], res=args.trunk_res, norm=args.trunk_norm)
+        self.branch = eval(args.branch_net)(self.branch_dims[0], self.branch_dims[-1], args, keys[0])
+        self.trunk = eval(args.trunk_net)(self.trunk_dims[0], self.trunk_dims[-1], args, keys[1], res=args.trunk_res, norm=args.trunk_norm)
 
     def __call__(self, x, adj=None, w=None, key=prng(0), inspect=False):
         keys = jax.random.split(key,10)

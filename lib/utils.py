@@ -23,6 +23,26 @@ def trunc_init(weight: jax.Array, key: jax.random.PRNGKey) -> jax.Array:
   stddev = math.sqrt(1 / in_)
   return stddev * jax.random.truncated_normal(key, lower=-2, upper=2, shape=weight.shape)
 
+def ortho_init(weight: jax.Array, key: jax.random.PRNGKey) -> jax.Array:
+  out_dim, in_dim = weight.shape
+  if in_dim >= out_dim:
+    return jax.random.orthogonal(key, in_dim)[:,:out_dim].T
+  else:
+    return jnp.power(1/in_dim, 1/2) * jax.random.truncated_normal(key, lower=-2, upper=2, shape=weight.shape)
+
+def init_ortho(model, key):
+  is_linear = lambda x: isinstance(x, eqx.nn.Linear)
+  is_bias = lambda x: x.bias!=None if is_linear(x) else False
+  get_weights = lambda m: [x.weight  for x in jax.tree_util.tree_leaves(m, is_leaf=is_linear) if is_linear(x)]
+  get_biases = lambda m: [x.bias for x in jax.tree_util.tree_leaves(m, is_leaf=is_bias) if is_bias(x)]
+  weights = get_weights(model)
+  biases = get_biases(model)
+  new_weights = [ortho_init(weight, subkey) for weight, subkey in zip(weights, jax.random.split(key, len(weights)))]
+  new_biases = [jnp.zeros(b.shape) for b in biases]
+  model = eqx.tree_at(get_weights, model, new_weights)
+  model = eqx.tree_at(get_biases, model, new_biases)
+  return model
+
 def init_he(model, key):
   is_linear = lambda x: isinstance(x, eqx.nn.Linear)
   is_bias = lambda x: x.bias!=None if is_linear(x) else False

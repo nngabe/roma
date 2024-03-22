@@ -89,7 +89,6 @@ class RenONet(eqx.Module):
         if self.euclidean:
             return y
         y = self.manifold.logmap0(y, self.c)
-        y = y * jnp.sqrt(self.c) * 1.47#63057
         return y
 
     def encode(self, x, adj, key):
@@ -181,7 +180,7 @@ class RenONet(eqx.Module):
         keys = jr.split(key, 2)
         if hasattr(self.decoder, 'branch'):
             b,z = z[:,:self.kappa],z[:,self.kappa:]
-            b = self.decoder.func_space(b, key)
+            b = self.decoder.func_space(b, prng(0))
             b_dec = self.decoder.branch(b, keys[0])
             b_pde = self.decoder.branch(b, keys[1])
             z_dec = jnp.concatenate([b_dec,z], axis=-1)

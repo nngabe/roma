@@ -22,5 +22,6 @@ def arsinh(x):
     return jnp.arcsinh(x)
 
 def artanh(x):
-    clamp = 1. - 1e-7
-    return jnp.arctanh(x.clip(clamp,clamp))
+    clamp = 1. - 1e-15
+    x = x.clip(-clamp,clamp)
+    return 0.5 * (jnp.log(1+x) - jnp.log(1-x))
