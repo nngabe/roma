@@ -9,9 +9,9 @@ config_args = {
         'dropout': (0.01, 'dropout probability'),
         'dropout_branch': (0.01, 'dropout probability in the branch net'),
         'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
-        'epochs': (40000, 'number of epochs to train for'),
+        'epochs': (60000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
-        'optim': ('nadamw', 'optax class name of optimizer'),
+        'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
         'b1': (.9, 'coefficient for first moment in adam'),
         'b2': (.999, 'coefficient for second moment in adam'),
@@ -44,8 +44,8 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
-        'w_ms': (5e-4, 'weight for assignment matrix entropy loss.'),
-        'w_pool': ([1e+0, 5e-1, 1e+1], 'weights for S entropy, A entropy, and LP respectively.'),
+        'w_ms': (1e-4, 'weight for assignment matrix entropy loss.'),
+        'w_pool': ([1e+0, 2e+0, 2e+0], 'weights for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
@@ -136,7 +136,7 @@ def configure(args):
         args.pos_emb_var = [1/4, 1.]
     
     if args.level_emb_var == 1: 
-        args.level_emb_var = [1/4]
+        args.level_emb_var = [0.]
     else:
         args.level_emb_var = [1.]
 

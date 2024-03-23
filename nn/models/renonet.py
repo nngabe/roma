@@ -177,12 +177,12 @@ class RenONet(eqx.Module):
         return res, gpde
 
     def branch(self, z, key):
-        keys = jr.split(key, 2)
+        keys = jr.split(key, 3)
         if hasattr(self.decoder, 'branch'):
             b,z = z[:,:self.kappa],z[:,self.kappa:]
-            b = self.decoder.func_space(b, prng(0))
-            b_dec = self.decoder.branch(b, keys[0])
-            b_pde = self.decoder.branch(b, keys[1])
+            b = self.decoder.func_space(b, keys[0])
+            b_dec = self.decoder.branch(b, keys[1])
+            b_pde = self.decoder.branch(b, keys[2])
             z_dec = jnp.concatenate([b_dec,z], axis=-1)
             z_pde = jnp.concatenate([b_pde,z], axis=-1)
             return z_dec, z_pde
