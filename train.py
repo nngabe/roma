@@ -33,7 +33,8 @@ from lib.positional_encoding import pe_path_from, pos_enc
 prng = lambda i=0: jax.random.PRNGKey(i)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
+    stamp = str(int(time.time()))
     args = parser.parse_args()
     args = configure(args)    
 
@@ -41,6 +42,7 @@ if __name__ == '__main__':
     args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*csv')[0]
     args.pe_path = pe_path_from(args)
 
+    print(f'\n\n time_stamp = {stamp}')
     print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n pe path: {args.pe_path}\n')
     
     torch_device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -214,7 +216,6 @@ if __name__ == '__main__':
         model = eqx.tree_inference(model, value=False) 
         return loss, model
  
-    stamp = str(int(time.time()))
     log['loss'] = {}
    
     tic = time.time()

@@ -45,11 +45,13 @@ elif batch == 'scaling_2':
 
 elif batch == 'uncertainty':
     OUT_FILE = 'args/uncertainty.txt'
-    opts = {'manifold': ['PoincareBall'], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
+    opts = {'manifold': ['PoincareBall'], 'eta_var': [1.0e-04, 2.5e-03, 1.0e-02]}
     OPTS.append(opts)
-    opts = {'decoder': ['ResNet'], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
+    opts = {'decoder': ['ResNet'], 'eta_var': [1.0e-04, 2.5e-03, 1.0e-02]}
     OPTS.append(opts)
-    opts = {'w_pde':[1e-20], 'w_gpde': [1e-20], 'eta_var': [2.5e-05, 1.0e-04, 4.0e-04, 2.5e-03, 1.0e-02]}
+    opts = {'w_pde':[0.], 'w_gpde': [0.], 'eta_var': [1.0e-04, 2.5e-03, 1.0e-02]}
+    OPTS.append(opts)
+    opts = {'manifold': ['Euclidean'], 'eta_var': [1.0e-04, 2.5e-03, 1.0e-02]}
     OPTS.append(opts)
 
 elif batch == 'enc':
