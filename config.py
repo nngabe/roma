@@ -109,7 +109,7 @@ config_args = {
         'res': (True, 'whether to use sum skip connections or not.'),
         'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
-        'c': (1/2, 'hyperbolic radius, set to None for trainable curvature'),
+        'c': (1., 'hyperbolic radius, set to None for trainable curvature'),
         'edge_conv': (True, 'use edge convolution or not'),
         'agg': ('sum', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
@@ -121,7 +121,7 @@ config_args = {
         'local_agg': (1, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
-        'path': ('t1708806913','from which to infer data path'),
+        'path': ('1708806913','from which to infer data path'),
         'log_path': (None, 'snippet from which to infer log/model path.'),
     }
 }
