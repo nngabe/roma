@@ -1,12 +1,12 @@
---manifold PoincareBall --eta_var 0.0001 
 --manifold PoincareBall --eta_var 0.0025 
 --manifold PoincareBall --eta_var 0.01 
---decoder ResNet --eta_var 0.0001 
+--manifold PoincareBall --eta_var 0.09 
 --decoder ResNet --eta_var 0.0025 
 --decoder ResNet --eta_var 0.01 
---w_pde 1.0 --w_gpde 1.0 --eta_var 0.0001 
---w_pde 1.0 --w_gpde 1.0 --eta_var 0.0025 
---w_pde 1.0 --w_gpde 1.0 --eta_var 0.01 
---manifold Euclidean --eta_var 0.0001 
---manifold Euclidean --eta_var 0.0025 
---manifold Euclidean --eta_var 0.01 
+--decoder ResNet --eta_var 0.09 
+--w_pde 0.0 --w_gpde 0.0 --eta_var 0.0025 
+--w_pde 0.0 --w_gpde 0.0 --eta_var 0.01 
+--w_pde 0.0 --w_gpde 0.0 --eta_var 0.09 
+--level_emb_var 1 --eta_var 0.0025 
+--level_emb_var 1 --eta_var 0.01 
+--level_emb_var 1 --eta_var 0.09 

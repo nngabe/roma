@@ -9,22 +9,22 @@ config_args = {
         'dropout': (0.01, 'dropout probability'),
         'dropout_branch': (0.01, 'dropout probability in the branch net'),
         'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
-        'epochs': (60000, 'number of epochs to train for'),
+        'epochs': (10000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
         'b1': (.9, 'coefficient for first moment in adam'),
         'b2': (.999, 'coefficient for second moment in adam'),
-        'weight_decay': (2e-4, 'l2 regularization strength'),
+        'weight_decay': (1e-3, 'l2 regularization strength'),
         'epsilon': (1e-8, 'epsilon in adam denominator'),
         'beta': (.99, 'moving average coefficient for SLAW'),
         'log_freq': (100, 'how often to compute print train/val metrics (in epochs)'),
         'batch_freq': (1, 'how often to resample training graph'),
-        'max_norm': (.05, 'max norm for gradient clipping, or None for no gradient clipping'),
-        'max_norm_enc': (.05, 'max norm for graph network gradient clipping, or None for no gradient clipping'),
+        'max_norm': (1., 'max norm for gradient clipping, or None for no gradient clipping'),
+        'max_norm_enc': (1., 'max norm for graph network gradient clipping, or None for no gradient clipping'),
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
-        'num_col': (1, 'number of colocation points in the time domain'),
+        'num_col': (4, 'number of colocation points in the time domain'),
         'batch_size': (216, 'number of nodes in test and batch graphs'),
         'sampler_batch_size': (-1, 'factor to down sample training set.'),
         'batch_walk_len': (30, 'length of GraphSAINT sampler random walks.'),
@@ -33,7 +33,7 @@ config_args = {
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (4, 'factor of reduction for each pooling step'),
         'pool_steps': (2, 'number of pooling steps'),
-        'eta_var': (1e-6, 'variance of multiplicative noise'),
+        'eta_var': (1e-4, 'variance of multiplicative noise'),
     },
     'model_config': {
 
@@ -44,8 +44,8 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
-        'w_ms': (1e-4, 'weight for assignment matrix entropy loss.'),
-        'w_pool': ([1e+0, 2e+0, 2e+0], 'weights for S entropy, A entropy, and LP respectively.'),
+        'w_ms': (5e-4, 'weight for assignment matrix entropy loss.'),
+        'w_pool': (0, 'weights for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
@@ -53,9 +53,9 @@ config_args = {
 
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
-        'coord_dim': (512, 'dimension of (t,x) embedding'), 
-        't_var': (5e-2, 'variance of time embedding in trunk net'),
-        'x_var': (1e-2, 'variance of space embedding in trunk net'),
+        'coord_dim': (64, 'dimension of (t,x) embedding'), 
+        't_var': (1e-6, 'variance of time embedding in trunk net'),
+        'x_var': (1e-6, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
         'pe_dim': (128, 'dimension of positional encoding'),
@@ -128,17 +128,26 @@ config_args = {
 
 def configure(args):
 
-    if args.pos_emb_var == 1: 
-        args.pos_emb_var = [1/2, 1.]
-    elif args.pos_emb_var == 2: 
-        args.pos_emb_var = [1/8, 1.]
-    else: 
+    # multiscale embedding weights
+    if args.pos_emb_var == 0: 
         args.pos_emb_var = [1/4, 1.]
-    
-    if args.level_emb_var == 1: 
-        args.level_emb_var = [0.]
-    else:
+    elif args.pos_emb_var > 0: 
+        args.pos_emb_var = [2**((1-i)/3), 1.]
+   
+    if args.level_emb_var == 0:
         args.level_emb_var = [1.]
+    elif args.level_emb_var == 1: 
+        args.level_emb_var = [0.]
+
+    # multiscale loss weights
+    if args.w_pool == 0:
+        args.w_pool = [1.,1.,1.] # = w[H_S, H_A, LP]
+    elif args.w_pool == 1:
+        args.w_pool = [0.,1.,1.]
+    elif args.w_pool == 2:
+        args.w_pool = [1.,0.,1.]
+    elif args.w_pool == 3:
+        args.w_pool = [1.,1.,0.]
 
     # read cached pe if loading from path
     #if args.log_path != None: args.use_cached = True

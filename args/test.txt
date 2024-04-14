@@ -1,0 +1,4 @@
+--t_var 1e-06 --x_var 1e-06 --coord_dim 128 
+--t_var 1e-06 --x_var 1e-06 --coord_dim 256 
+--t_var 1e-06 --x_var 1e-05 --coord_dim 256 
+--t_var 1e-05 --x_var 1e-06 --coord_dim 256 

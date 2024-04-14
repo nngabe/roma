@@ -131,7 +131,7 @@ if __name__ == '__main__':
     lr = args.lr
     num_cycles = args.num_cycles
     cycle_length = args.epochs//num_cycles
-    warmup_steps = 1/2 * cycle_length
+    warmup_steps = 2/5 * cycle_length
 
     schedule_cos = optax.join_schedules(schedules=
         [
@@ -148,12 +148,12 @@ if __name__ == '__main__':
     schedule = optax.join_schedules(schedules=
         [
           optax.warmup_exponential_decay_schedule(
-              init_value=lr*1e-2,
+              init_value=lr*1e-4,
               peak_value=lr * 10**-(1.5 * i/num_cycles),
-              end_value=lr*1e-2,
+              end_value=lr*5e-2,
               warmup_steps=warmup_steps, 
-              transition_steps=(cycle_length - warmup_steps)*2.2, 
-              decay_rate = 1e-6) for i in range(num_cycles)
+              transition_steps=(cycle_length - warmup_steps)*4.6, 
+              decay_rate = 1e-7) for i in range(num_cycles)
         ] , boundaries=jnp.cumsum(jnp.array([cycle_length] * num_cycles)))
 
     #schedule = optax.warmup_exponential_decay_schedule(init_value=args.lr//5e+2, peak_value=args.lr, warmup_steps=args.epochs//10,

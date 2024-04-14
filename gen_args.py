@@ -16,6 +16,12 @@ if batch == '':
     opts = {'decoder':['ResNet']}
     OPTS.append(opts)
 
+elif batch == 'test':
+    OUT_FILE = 'args/test.txt'
+    opts = {'t_var': [1e-6,1e-5], 'x_var': [1e-6,1e-5], 'coord_dim': [128,256]}
+    OPTS.append(opts)
+
+
 elif batch == 'scaling':
     OUT_FILE = 'args/scaling.txt'
     opts = {'manifold': ['PoincareBall'], 'path': ['t1708806913']} #, 't1708806913', 't1708808123']}
@@ -29,39 +35,59 @@ elif batch == 'scaling':
     opts = {'w_pde':[0.], 'w_gpde': [0.], 'path': ['t1708806913']} #, 't1708806913', 't1708808123']}
     OPTS.append(opts)
 
-elif batch == 'scaling_2':
-    opts = {'manifold': ['PoincareBall'], 'path': ['t1708805081']} #, 't1708806913', 't1708808123']}
+elif batch == 'ablation_d':
+    OUT_FILE = 'args/ablation_d.txt'
+    opts = {'manifold': ['PoincareBall']}
     OPTS.append(opts)
-    opts = {'level_emb_var': [1], 'path': ['t1708805081']} #, 't1708806913', 't1708808123']}
+    opts = {'level_emb_var': [1]}
     OPTS.append(opts)
-    opts = {'decoder': ['ResNet'], 'path': ['t1708805081']} #, 't1708806913', 't1708808123']}
+    opts = {'decoder': ['ResNet'], 'dec_width': [960]}
     OPTS.append(opts)
-    opts = {'branch_net': ['ResNet'], 'path': ['t1708805081']} #, 't1708806913', 't1708808123']}
+    #opts = {'branch_net': ['ResNet']}
+    #OPTS.append(opts)
+    opts = {'w_pde':[0.], 'w_gpde': [0.]}
     OPTS.append(opts)
-    opts = {'manifold': ['Euclidean'], 'path': ['t1708805081']} #, 't1708806913', 't1708808123']}
+    opts = {'w_gpde': [0.]}
     OPTS.append(opts)
-    opts = {'w_pde':[0.], 'w_gpde': [0.], 'path': ['t1708805081']} #, 't1708806913', 't1708808123']}
+    opts = {'coord_dim': [1]}
     OPTS.append(opts)
 
-elif batch == 'uncertainty':
+elif batch == 'ablation_du':
+    OUT_FILE = 'args/ablation_du.txt'
+    opts = {'manifold': ['PoincareBall'],'eta_var': [9e-2]}
+    OPTS.append(opts)
+    opts = {'level_emb_var': [1],'eta_var': [9e-2]}
+    OPTS.append(opts)
+    opts = {'decoder': ['ResNet'],'eta_var': [9e-2]}
+    OPTS.append(opts)
+    opts = {'branch_net': ['ResNet'],'eta_var': [9e-2]}
+    OPTS.append(opts)
+    opts = {'w_pde':[0.], 'w_gpde': [0.],'eta_var': [9e-2]}
+    OPTS.append(opts)
+    opts = {'w_gpde': [0.],'eta_var': [9e-2]}
+    OPTS.append(opts)
+
+elif batch == 'ablation_ms':
+    OUT_FILE = 'args/ablation_ms.txt'
+    opts = {'manifold': ['Euclidean']}
+    OPTS.append(opts)
+    opts = {'w_pool': [1,2,3]}
+    OPTS.append(opts)
+    opts = {'pe_dim': [0]}
+    OPTS.append(opts)
+
+elif batch == 'uncertainty_2':
     OUT_FILE = 'args/uncertainty.txt'
-    opts = {'manifold': ['PoincareBall'], 'eta_var': [1.0e-04, 2.5e-03, 1.0e-02]}
+    opts = {'manifold': ['PoincareBall'], 'eta_var': [9e-2]}
     OPTS.append(opts)
-    opts = {'decoder': ['ResNet'], 'eta_var': [1.0e-04, 2.5e-03, 1.0e-02]}
+    opts = {'decoder': ['ResNet'], 'eta_var': [9e-2]}
     OPTS.append(opts)
-    opts = {'w_pde':[0.], 'w_gpde': [0.], 'eta_var': [1.0e-04, 2.5e-03, 1.0e-02]}
+    opts = {'branch_net': ['ResNet'], 'eta_var': [9e-2]}
     OPTS.append(opts)
-    opts = {'manifold': ['Euclidean'], 'eta_var': [1.0e-04, 2.5e-03, 1.0e-02]}
+    opts = {'w_pde':[0.], 'w_gpde': [0.], 'eta_var':[9e-2]}
     OPTS.append(opts)
-
-elif batch == 'enc':
-    OUT_FILE = 'args/enc.txt'
-    opts = {'c':[1/4, 1], 'epochs':[100000]}
-
-elif batch == 'embed':
-    OUT_FILE = 'args/embed.txt'
-    opts = {'pos_emb_var': [0, 1], 'level_emb_var': [0, 1]}
-    OPTS.append(opts) 
+    opts = {'level_emb_var': [1], 'eta_var': [9e-2]}
+    OPTS.append(opts)
 
 elif batch == 'optim':
     OUT_FILE = 'args/optim.txt'
