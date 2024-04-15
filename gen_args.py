@@ -18,7 +18,7 @@ if batch == '':
 
 elif batch == 'test':
     OUT_FILE = 'args/test.txt'
-    opts = {'t_var': [1e-6,1e-5], 'x_var': [1e-6,1e-5], 'coord_dim': [128,256]}
+    opts = {'t_var': [5e-7,1e-5], 'x_var': [5e-7,1e-5], 'coord_dim': [128,256]}
     OPTS.append(opts)
 
 

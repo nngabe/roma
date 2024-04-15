@@ -9,7 +9,7 @@ config_args = {
         'dropout': (0.01, 'dropout probability'),
         'dropout_branch': (0.01, 'dropout probability in the branch net'),
         'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
-        'epochs': (10000, 'number of epochs to train for'),
+        'epochs': (25000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -53,9 +53,9 @@ config_args = {
 
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
-        'coord_dim': (64, 'dimension of (t,x) embedding'), 
-        't_var': (1e-6, 'variance of time embedding in trunk net'),
-        'x_var': (1e-6, 'variance of space embedding in trunk net'),
+        'coord_dim': (1024, 'dimension of (t,x) embedding'), 
+        't_var': (1e-7, 'variance of time embedding in trunk net'),
+        'x_var': (1e-7, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
         'pe_dim': (128, 'dimension of positional encoding'),
