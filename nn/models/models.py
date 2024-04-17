@@ -171,12 +171,13 @@ class Transformer(eqx.Module):
     
     def multiscale_embedding(self, x):
         res = jnp.zeros_like(x)
-        pos_emb_scalers = jnp.ones((self.level_dims[-1],1)).at[:self.level_dims[1]].mul(self.pos_emb_var[0])
+        pos_emb_scalers = jnp.ones((self.level_dims[-1],1))
+        pos_emb_scalers = pos_emb_scalers.at[:self.level_dims[1]].mul(self.pos_emb_var[0])
         pos_emb_scalers = pos_emb_scalers.at[self.level_dims[1]:].mul(self.pos_emb_var[1])
-        res = res.at[:].add(self.positional_embedding[:self.level_dims[-1]] * pos_emb_scalers)
+        res = res.at[:].add(self.positional_embedding[:res.shape[0]] * pos_emb_scalers)
         for i,dim in enumerate(self.level_dims[:-1]):
             l1,l2 = dim, self.level_dims[i+1]
-            level_emb_scaler = self.level_emb_var[0] ** i
+            level_emb_scaler = self.level_emb_var[0] 
             res = res.at[l1:l2].add(self.level_embedding[i] * level_emb_scaler)
         return res
 

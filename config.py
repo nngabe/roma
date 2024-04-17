@@ -53,9 +53,9 @@ config_args = {
 
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
-        'coord_dim': (1024, 'dimension of (t,x) embedding'), 
-        't_var': (1e-7, 'variance of time embedding in trunk net'),
-        'x_var': (1e-7, 'variance of space embedding in trunk net'),
+        'coord_dim': (2048, 'dimension of (t,x) embedding'), 
+        't_var': (2e-7, 'variance of time embedding in trunk net'),
+        'x_var': (2e-7, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
         'pe_dim': (128, 'dimension of positional encoding'),
@@ -155,7 +155,7 @@ def configure(args):
         
     # size of renorm/pooling graphs
     args.manifold_pool = args.manifold
-    args.pool_size = [32//args.pool_red**i for i in range(0,args.pool_steps)]
+    args.pool_size = [32//args.pool_red**i for i in range(0,args.pool_steps)] if args.pool_steps > 1 else [2]
     args.num_nodes = args.batch_size + sum(args.pool_size)
     
     # pe dims
