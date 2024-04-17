@@ -89,6 +89,8 @@ if __name__ == '__main__':
     batch, loader = get_next_batch(loader, args, data_train)
     x_batch, adj_batch, pe_batch = pad_graph(x=batch.x.numpy(), adj=batch.edge_index.numpy(), pe=batch.pe.numpy(), x_size=args.batch_size)
 
+    if args.epochs == 0: sys.exit(0)
+
     if args.log_path:
         model, args = utils.read_model(args)
     else:
@@ -180,7 +182,6 @@ if __name__ == '__main__':
         model = eqx.tree_inference(model, value=False) 
         return loss, model
 
-    if args.epochs == 0: sys.exit(0)
 
     lr = args.lr
     num_cycles = args.num_cycles
