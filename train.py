@@ -89,6 +89,23 @@ if __name__ == '__main__':
     batch, loader = get_next_batch(loader, args, data_train)
     x_batch, adj_batch, pe_batch = pad_graph(x=batch.x.numpy(), adj=batch.edge_index.numpy(), pe=batch.pe.numpy(), x_size=args.batch_size)
 
+    @jax.jit
+    def _batch(x, pe, idx, sigma=args.eta_var, key=prng()):
+        win = jnp.arange(1 - args.kappa, 1, 1)
+        x = x.at[:, idx + win].get()
+        x = jnp.swapaxes(x,0,1)
+        
+        # add noise
+        leta = jnp.sqrt(sigma) * jr.normal(key, x.shape)
+        eta = jnp.exp(leta)
+        x = eta * x
+
+        # add positional encoding
+        pe = jnp.tile(pe, (idx.shape[0],1,1))
+        xi = jnp.concatenate([x, pe], axis=-1)
+
+        return xi
+ 
     if args.epochs == 0: sys.exit(0)
 
     if args.log_path:
@@ -130,23 +147,7 @@ if __name__ == '__main__':
         print(f' w[data,pde,gpde,ms] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ms:.0e})')
         print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})\n')
     
-    @jax.jit
-    def _batch(x, pe, idx, sigma=args.eta_var, key=prng()):
-        win = jnp.arange(1 - args.kappa, 1, 1)
-        x = x.at[:, idx + win].get()
-        x = jnp.swapaxes(x,0,1)
-        
-        # add noise
-        leta = jnp.sqrt(sigma) * jr.normal(key, x.shape)
-        eta = jnp.exp(leta)
-        x = eta * x
-
-        # add positional encoding
-        pe = jnp.tile(pe, (idx.shape[0],1,1))
-        xi = jnp.concatenate([x, pe], axis=-1)
-
-        return xi
-      
+     
     #@jax.jit 
     def update(key, model, x, pe, adj, state, opt_state):
         key = jax.random.split(key)[0]
