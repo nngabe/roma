@@ -58,7 +58,7 @@ config_args = {
         'x_var': (1e-7, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
-        'pe_dim': (32, 'dimension of each positional encoding (node2vec,LE,...)'),
+        'pe_dim': (128, 'dimension of each positional encoding (node2vec,LE,...)'),
         'pe_embed_dim': (64, 'dimension of pe linear embedding'),
         'le_size': (-1, 'size of laplacian eigenvector positional encoding'),
         'rw_size': (-1, 'size of random walk (diffusion) positional encoding'),

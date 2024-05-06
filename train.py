@@ -51,17 +51,17 @@ if __name__ == '__main__':
     torch.set_default_device('cpu')
     pe = torch.tensor(pe, dtype=torch.float32)
 
-    print(' reading edge file...', end='')    
+    print(' Reading graph from file...', end='')    
     A = pd.read_parquet(args.adj_path).T.to_numpy()
     adj = A if A.shape[0]==2 else np.where(A)
     edge_index = torch.tensor(adj,dtype=torch.long)
     edge_index, _ = add_self_loops(edge_index)
-    time.sleep(0.5)
+    time.sleep(0.2)
     print(' Done.\n')
 
-    print(' reading series file...', end='')
+    print(' Reading timeseries from file...', end='')
     x = pd.read_parquet(args.data_path).to_numpy()
-    time.sleep(0.5)
+    time.sleep(0.2)
     print(' Done.\n')
 
     n,T = x.shape
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     x_test, adj_test, pe_test = pad_graph(x=x[batch_test.idx.numpy()], adj=batch_test.edge_index.numpy(), pe=pe[batch_test.idx.numpy()], x_size=args.batch_size)
     idx_test = batch_test.idx
     edge_index_test = batch_test.edge_index 
-    time.sleep(0.5)
+    time.sleep(0.2)
     print(' Done.\n')
     
     # training graph    
@@ -98,10 +98,9 @@ if __name__ == '__main__':
     batch, loader = get_next_batch(loader, args, data_train)
     
     x_batch, adj_batch, pe_batch = pad_graph(x=x[batch.idx.numpy()], adj=batch.edge_index.numpy(), pe=pe[batch.idx.numpy()], x_size=args.batch_size)
-    time.sleep(0.5)
+    time.sleep(0.2)
     print(' Done.\n\n')
 
-    #sys.exit(0)
 
     @jax.jit
     def _batch(x, pe, idx, sigma=args.eta_var, key=prng()):
@@ -120,8 +119,6 @@ if __name__ == '__main__':
 
         return xi
  
-    if args.epochs == 0: sys.exit(0)
-
     if args.log_path:
         model, args = utils.read_model(args)
     else:
