@@ -18,38 +18,35 @@ if batch == '':
 
 elif batch == 'test':
     OUT_FILE = 'args/test.txt'
-    opts = {'t_var': [5e-7,1e-5], 'x_var': [5e-7,1e-5], 'coord_dim': [128,256]}
+    opts = {'max_norm': [1.], 'max_norm_enc': [1.]} 
     OPTS.append(opts)
 
-
-elif batch == 'scaling':
-    OUT_FILE = 'args/scaling.txt'
-    opts = {'manifold': ['PoincareBall'], 'path': ['t1708806913']} #, 't1708806913', 't1708808123']}
-    OPTS.append(opts)
-    opts = {'level_emb_var': [1], 'path': ['t1708806913']} #, 't1708806913', 't1708808123']}
-    OPTS.append(opts)
-    opts = {'decoder': ['ResNet'], 'path': ['t1708806913']} #, 't1708806913', 't1708808123']}
-    OPTS.append(opts)
-    opts = {'manifold': ['Euclidean'], 'path': ['t1708806913']} #, 't1708806913', 't1708808123']}
-    OPTS.append(opts)
-    opts = {'w_pde':[0.], 'w_gpde': [0.], 'path': ['t1708806913']} #, 't1708806913', 't1708808123']}
-    OPTS.append(opts)
-
-elif batch == 'ablation_d':
-    OUT_FILE = 'args/ablation_d.txt'
+elif batch == 'ablations':
+    OUT_FILE = 'args/ablations.txt'
     opts = {'manifold': ['PoincareBall']}
     OPTS.append(opts)
-    opts = {'level_emb_var': [1]}
+    opts = {'manifold': ['Euclidean']}
     OPTS.append(opts)
     opts = {'decoder': ['ResNet'], 'dec_width': [960]}
     OPTS.append(opts)
-    #opts = {'branch_net': ['ResNet']}
-    #OPTS.append(opts)
     opts = {'w_pde':[0.], 'w_gpde': [0.]}
+    OPTS.append(opts)
+    opts = {'pool_steps': [0]}
+    OPTS.append(opts)
+    opts = {'pe_dim': [0]}
+    OPTS.append(opts)
+
+elif batch == 'ablations_extra':
+    OUT_FILE = 'args/ablations.txt'
+    opts = {'w_gpde': [0.]}
+    OPTS.append(opts)
+    opts = {'level_emb_var': [1]}
+    OPTS.append(opts)
+    opts = {'coord_dim': [1]}
     OPTS.append(opts)
     opts = {'w_gpde': [0.]}
     OPTS.append(opts)
-    opts = {'coord_dim': [1]}
+    opts = {'w_pool': [1,2,3]}
     OPTS.append(opts)
 
 elif batch == 'ablation_du':
@@ -98,6 +95,11 @@ elif batch == 'optim':
     opts = {'epsilon': [1e-4] ,'weight_decay': [1e-3], 'b1': [.9], 'epochs': [10000], 'log_path': [1709754619]}
     OPTS.append(opts)
     opts = {'optim': ['adamw'], 'weight_decay': [1e-3], 'b1': [.9], 'epochs': [10000], 'log_path': [1709754619]}
+    OPTS.append(opts)
+
+elif batch == 'ffe':
+    OUT_FILE = 'args/ffe.txt'
+    opts = {'t_var': [1e-4, 1e-6], 'x_var': [1e-4, 1e-6]} 
     OPTS.append(opts)
 
 elif batch == 'clip':

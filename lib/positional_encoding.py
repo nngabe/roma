@@ -63,7 +63,7 @@ def node2vec(data, dim=128, device='cpu'):
                          max_iter=150)
         return acc
 
-    for epoch in range(41):
+    for epoch in range(21):
         loss = train()
         #acc = test()
         if epoch%10==0: print(f'  Epoch: {epoch:02d}, Loss: {loss:.4f}') 
@@ -259,7 +259,7 @@ class AddRandomWalkPE(BaseTransform):
 
 def compute_pos_enc(args, le_size, rw_size, n2v_size, norm, device):
     torch.device(device)
-    A = pd.read_csv(args.adj_path, index_col=0).to_numpy()
+    A = pd.read_parquet(args.adj_path).T.to_numpy()
     adj = A if A.shape[0]==2 else np.where(A)
     edge_index = torch.tensor(adj, device=device)
     data = Data(edge_index=edge_index, device=device)
@@ -296,7 +296,7 @@ def compute_pos_enc(args, le_size, rw_size, n2v_size, norm, device):
     #pe = np.concatenate([pe_le/pe_le.max(), pe_rw/pe_rw.max(), pe_n2v/pe_n2v.max()], axis=1)
 
     pe_path = pe_path_from(args)
-    pd.DataFrame(pe).to_csv(pe_path)
+    pd.DataFrame(pe, columns=np.arange(pe.shape[1]).astype(str)).to_parquet(pe_path)
 
     return pe
 
@@ -310,8 +310,8 @@ def pos_enc(args, le_size=50, rw_size=50, n2v_size=128, norm=False, use_cached=F
     """ Read positional encoding from path if it exists else compute from adjacency matrix."""
     pe_path = args.pe_path 
     if use_cached and os.path.exists(pe_path): 
-        print(' reading PE (LapPE, RWPE, node2vec) from file...')
-        pe = pd.read_csv(pe_path,index_col=0).to_numpy()
+        print(' reading PE (LapPE, RWPE, node2vec) from file...', end='')
+        pe = pd.read_parquet(pe_path).to_numpy()
         print(' Done.')
     else: pe = compute_pos_enc(args, le_size=le_size, rw_size=rw_size, n2v_size=n2v_size, norm=norm, device=device)
     return pe

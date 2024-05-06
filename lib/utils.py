@@ -28,7 +28,8 @@ def ortho_init(weight: jax.Array, key: jax.random.PRNGKey) -> jax.Array:
   if in_dim >= out_dim:
     return jax.random.orthogonal(key, in_dim)[:,:out_dim].T
   else:
-    return jnp.power(1/in_dim, 1/2) * jax.random.truncated_normal(key, lower=-2, upper=2, shape=weight.shape)
+    return jnp.power(out_dim/in_dim, 1/2) * jax.random.orthogonal(key, out_dim)[:in_dim,:].T
+    #return jnp.power(1/in_dim, 1/2) * jax.random.truncated_normal(key, lower=-2, upper=2, shape=weight.shape)
 
 def init_ortho(model, key):
   is_linear = lambda x: isinstance(x, eqx.nn.Linear)

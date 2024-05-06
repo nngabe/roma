@@ -38,56 +38,70 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args = configure(args)    
 
-    args.data_path = glob.glob(f'../data/x*{args.path}*csv')[0]
-    args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*csv')[0]
+    args.data_path = glob.glob(f'../data/x*{args.path}*parquet')[0]
+    args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*')[0]
     args.pe_path = pe_path_from(args)
 
-    print(f'\n\n time_stamp = {stamp}')
+    print(f'\n time_stamp = {stamp}')
     print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n pe path: {args.pe_path}\n')
-    
-    torch_device = 'cuda' if torch.cuda.is_available() else 'cpu'
+   
+    #torch.set_default_device('cpu')
+    torch_device = 'cpu' if not torch.cuda.is_available() else 'cuda'
     pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached_pe, device=torch_device) 
-    pe = torch.tensor(pe)
-    
-    A = pd.read_csv(args.adj_path, index_col=0).to_numpy()
+    torch.set_default_device('cpu')
+    pe = torch.tensor(pe, dtype=torch.float32)
+
+    print(' reading edge file...', end='')    
+    A = pd.read_parquet(args.adj_path).T.to_numpy()
     adj = A if A.shape[0]==2 else np.where(A)
     edge_index = torch.tensor(adj,dtype=torch.long)
     edge_index, _ = add_self_loops(edge_index)
-    x = pd.read_csv(args.data_path, index_col=0).dropna().T
-    x = torch.tensor(x.to_numpy())
-    x = (x - x.min())/(x.max() - x.min())
-    n,T = x.shape
+    time.sleep(0.5)
+    print(' Done.\n')
 
+    print(' reading series file...', end='')
+    x = pd.read_parquet(args.data_path).to_numpy()
+    time.sleep(0.5)
+    print(' Done.\n')
+
+    n,T = x.shape
+    
     # split training and test sets via torch geometric data loaders:
     # i.e. dataloader hold torch.tensors on cpu. pad_graph converts batches to numpy.array on cpu -> jax.Arrays on gpu during training
     torch.manual_seed(0)
     
     # test set
-    idx=torch.arange(x.shape[0]).reshape(-1,1) 
-    data = Data(edge_index=edge_index, idx=idx, x=x, pe=pe)
+    print(' Initializing loader and sampling test batch...',end='')
+    idx=torch.arange(x.shape[0])#.reshape(-1,1) 
+    data = Data(edge_index=edge_index, idx=idx)
     loader = GraphSAINTRandomWalkSampler(data, batch_size=args.sampler_batch_size, walk_length=args.batch_walk_len)
     batch_test, _ = get_next_batch(loader, args, data)
-    x_test, adj_test, pe_test = pad_graph(x=batch_test.x.numpy(), adj=batch_test.edge_index.numpy(), pe=batch_test.pe.numpy(), x_size=args.batch_size)
+    x_test, adj_test, pe_test = pad_graph(x=x[batch_test.idx.numpy()], adj=batch_test.edge_index.numpy(), pe=pe[batch_test.idx.numpy()], x_size=args.batch_size)
     idx_test = batch_test.idx
     edge_index_test = batch_test.edge_index 
-
-    # training graph
+    time.sleep(0.5)
+    print(' Done.\n')
+    
+    # training graph    
+    print(' Initializing loader and sampling first training batch...',end='')
     mask_train = torch.ones(n, dtype=torch.int)
     mask_train[idx_test] = 0
     idx_train = torch.where(mask_train)[0]    
     edge_index_train, _ = subgraph(idx_train, edge_index, relabel_nodes=False)
 
     idx_train = threshold_subgraphs_by_size(edge_index_train, min_size = args.min_subgraph_size)    
-    edge_index_train, _ = subgraph(idx_train, edge_index, relabel_nodes=True)
-
-    x_train, pe_train = x[idx_train], pe[idx_train]
-    idx=torch.arange(x_train.shape[0]).reshape(-1,1) 
-    data_train = Data(edge_index=edge_index_train, idx=idx, x=x[idx_train], pe=pe[idx_train])
+    edge_index_train, _ = subgraph(idx_train, edge_index, relabel_nodes=False)
     
     # initialize batch loader from training graph
+    data_train = Data(edge_index=edge_index_train, idx=idx)
     loader = GraphSAINTRandomWalkSampler(data_train, batch_size=args.sampler_batch_size, walk_length=args.batch_walk_len)
     batch, loader = get_next_batch(loader, args, data_train)
-    x_batch, adj_batch, pe_batch = pad_graph(x=batch.x.numpy(), adj=batch.edge_index.numpy(), pe=batch.pe.numpy(), x_size=args.batch_size)
+    
+    x_batch, adj_batch, pe_batch = pad_graph(x=x[batch.idx.numpy()], adj=batch.edge_index.numpy(), pe=pe[batch.idx.numpy()], x_size=args.batch_size)
+    time.sleep(0.5)
+    print(' Done.\n\n')
+
+    #sys.exit(0)
 
     @jax.jit
     def _batch(x, pe, idx, sigma=args.eta_var, key=prng()):
@@ -183,20 +197,21 @@ if __name__ == '__main__':
         model = eqx.tree_inference(model, value=False) 
         return loss, model
 
+    if args.epochs == 0: sys.exit(0)
 
     lr = args.lr
     num_cycles = args.num_cycles
     cycle_length = args.epochs//num_cycles
-    warmup_steps = 2/5 * cycle_length
+    warmup_steps = 1/2 * cycle_length
 
     schedule = optax.join_schedules(schedules=
         [
           optax.warmup_exponential_decay_schedule(
-              init_value=lr*1e-4,
+              init_value=lr*1e-2,
               peak_value=lr * 10**-(1.5 * i/num_cycles),
-              end_value=lr*5e-2,
+              end_value=lr*1e-2,
               warmup_steps=warmup_steps, 
-              transition_steps=(cycle_length - warmup_steps)*4.6, 
+              transition_steps=(cycle_length - warmup_steps)*3.5, 
               decay_rate = 1e-7) for i in range(num_cycles)
         ] , boundaries=jnp.cumsum(jnp.array([cycle_length] * num_cycles)))
 
@@ -205,8 +220,6 @@ if __name__ == '__main__':
     optimizer = getattr(optax, args.optim)(**params)
     optim = optax.chain(optax.clip(args.max_norm), optimizer)
     opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))
-
-
  
     log['loss'] = {}
    
@@ -218,15 +231,15 @@ if __name__ == '__main__':
       
         if i % args.batch_freq == 0: 
             batch, loader = get_next_batch(loader, args, data_train)
-        
-        x, adj, pe = pad_graph(batch.x.numpy(), batch.edge_index.numpy(), batch.pe.numpy(), x_size=args.batch_size)
+       
+        x_b, adj_b, pe_b = pad_graph(x=x[batch.idx.numpy()], adj=batch.edge_index.numpy(), pe=pe[batch.idx.numpy()], x_size=args.batch_size)
 
-        model, opt_state, key = update(key, model, x, pe, adj, state, opt_state)
+        model, opt_state, key = update(key, model, x_b, pe_b, adj_b, state, opt_state)
         
         if i % args.log_freq == 0:
             
-            x, adj, pe = x_test, adj_test, pe_test
-            loss, model = loss_test(model, x, adj, pe)
+            x_b, adj_b, pe_b = x_test, adj_test, pe_test
+            loss, model = loss_test(model, x_b, adj_b, pe_b)
             log['loss'][i] = [loss[0].item(), loss[1].item(), loss[2].item(), loss[3].item(), loss[4].item(), loss[5].item(), loss[6].item()]
             
             if args.verbose:

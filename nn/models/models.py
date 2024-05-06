@@ -149,7 +149,9 @@ class Transformer(eqx.Module):
         dropout_rate = args.dropout_branch
         self.num_layers = args.dec_depth 
     
-        level_dims = [0] + [args.batch_size] + args.pool_size 
+        level_dims = [0] + [args.batch_size] 
+        if sum(args.pool_size) > 0: level_dims += args.pool_size 
+
         self.level_dims = np.array(level_dims).cumsum().tolist()
         self.level_embedding = jr.normal(keys[0], (len(args.pool_size) + 1, in_dim))
         self.positional_embedding = jr.normal(keys[1], (args.num_nodes , in_dim))

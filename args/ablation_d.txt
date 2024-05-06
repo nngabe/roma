@@ -1,7 +1,0 @@
---manifold PoincareBall 
---level_emb_var 1 
---decoder ResNet 
---branch_net ResNet 
---w_pde 0.0 --w_gpde 0.0 
---w_gpde 0.0 
---coord_dim 1 

@@ -60,7 +60,7 @@ class RenONet(eqx.Module):
         self.beta = args.beta 
         self.B = self.scalers * jr.normal(prng(), (1 + self.x_dim, args.coord_dim//2))
         #self.embed_pe = eqx.nn.MLP(args.pe_size, self.kappa, 3 * self.kappa, 2, activation = jax.nn.gelu, key=prng()) 
-        self.embed_pe = eqx.nn.Linear(args.pe_size, self.kappa, key=prng()) 
+        self.embed_pe = eqx.nn.Linear(args.pe_size, args.pe_embed_dim, key=prng()) 
         self.euclidean = True if args.manifold=='Euclidean' else False 
 
     def coord_encode(self, tx):

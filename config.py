@@ -9,7 +9,7 @@ config_args = {
         'dropout': (0.01, 'dropout probability'),
         'dropout_branch': (0.01, 'dropout probability in the branch net'),
         'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
-        'epochs': (25000, 'number of epochs to train for'),
+        'epochs': (50000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -24,7 +24,7 @@ config_args = {
         'max_norm_enc': (1., 'max norm for graph network gradient clipping, or None for no gradient clipping'),
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
-        'num_col': (4, 'number of colocation points in the time domain'),
+        'num_col': (3, 'number of colocation points in the time domain'),
         'batch_size': (216, 'number of nodes in test and batch graphs'),
         'sampler_batch_size': (-1, 'factor to down sample training set.'),
         'batch_walk_len': (30, 'length of GraphSAINT sampler random walks.'),
@@ -54,11 +54,12 @@ config_args = {
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
         'coord_dim': (2048, 'dimension of (t,x) embedding'), 
-        't_var': (2e-7, 'variance of time embedding in trunk net'),
-        'x_var': (2e-7, 'variance of space embedding in trunk net'),
+        't_var': (1e-7, 'variance of time embedding in trunk net'),
+        'x_var': (1e-7, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
-        'pe_dim': (128, 'dimension of positional encoding'),
+        'pe_dim': (32, 'dimension of each positional encoding (node2vec,LE,...)'),
+        'pe_embed_dim': (64, 'dimension of pe linear embedding'),
         'le_size': (-1, 'size of laplacian eigenvector positional encoding'),
         'rw_size': (-1, 'size of random walk (diffusion) positional encoding'),
         'n2v_size': (-1, 'size of node2vec positional encoding'),
@@ -83,11 +84,11 @@ config_args = {
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
         'enc_width': (256, 'dimensions of encoder layers'),
-        'dec_width': (640,'dimensions of decoder layers'),
-        'pde_width': (640, 'dimensions of each pde layers'),
-        'pool_width': (640, 'dimensions of each pde layers'),
+        'dec_width': (768,'dimensions of decoder layers'),
+        'pde_width': (768, 'dimensions of each pde layers'),
+        'pool_width': (768, 'dimensions of each pde layers'),
         'enc_depth': (2, 'dimensions of encoder layers'),
-        'dec_depth': (4,'dimensions of decoder layers'),
+        'dec_depth': (5,'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
         'pool_depth': (2, 'dimensions of each pooling layer'),
         'enc_dims': ([-1]*3, 'dimensions of encoder layers'),
@@ -109,7 +110,7 @@ config_args = {
         'res': (True, 'whether to use sum skip connections or not.'),
         'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
-        'c': (1., 'hyperbolic radius, set to None for trainable curvature'),
+        'c': (1/8, 'hyperbolic radius, set to None for trainable curvature'),
         'edge_conv': (True, 'use edge convolution or not'),
         'agg': ('sum', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
@@ -121,12 +122,15 @@ config_args = {
         'local_agg': (1, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
-        'path': ('1708806913','from which to infer data path'),
+        'path': ('1714765591','from which to infer data path'),
         'log_path': (None, 'snippet from which to infer log/model path.'),
     }
 }
 
 def configure(args):
+
+    args.dropout_branch = args.dropout
+    args.dropout_trunk = args.dropout
 
     # multiscale embedding weights
     if args.pos_emb_var == 0: 
@@ -155,7 +159,7 @@ def configure(args):
         
     # size of renorm/pooling graphs
     args.manifold_pool = args.manifold
-    args.pool_size = [32//args.pool_red**i for i in range(0,args.pool_steps)] if args.pool_steps > 1 else [2]
+    args.pool_size = [32//args.pool_red**i for i in range(0,args.pool_steps)] if args.pool_steps > 0 else [0]
     args.num_nodes = args.batch_size + sum(args.pool_size)
     
     # pe dims
@@ -166,7 +170,7 @@ def configure(args):
     
     # layer dims (enc,renorm,pde,dec)
     args.pde_depth = args.dec_depth
-    args.enc_dims[0] = args.kappa * 2
+    args.enc_dims[0] = args.kappa + args.pe_embed_dim
     #args.enc_dims[0] += args.le_size + args.rw_size + args.n2v_size
     args.enc_dims[-1] = args.enc_width 
     args.dec_dims[-1] = args.x_dim
