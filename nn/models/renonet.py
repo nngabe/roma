@@ -36,6 +36,7 @@ class RenONet(eqx.Module):
     B: jnp.ndarray = eqx.field(static=True)
     embed_pe: eqx.nn.Linear
     euclidean: bool
+    eps: jnp.float32
 
     def __init__(self, args):
         super(RenONet, self).__init__()
@@ -62,6 +63,7 @@ class RenONet(eqx.Module):
         #self.embed_pe = eqx.nn.MLP(args.pe_size, self.kappa, 3 * self.kappa, 2, activation = jax.nn.gelu, key=prng()) 
         self.embed_pe = eqx.nn.Linear(args.pe_size, args.pe_embed_dim, key=prng()) 
         self.euclidean = True if args.manifold=='Euclidean' else False 
+        self.eps = 1e-15
 
     def coord_encode(self, tx):
         if len(tx.shape)>1:
@@ -205,9 +207,9 @@ class RenONet(eqx.Module):
             res = loss_fn(y,yh) 
         return jnp.square(res).mean() 
 
-    def forward(self, x0, adj, t, y, key, mode='train'):
+    def forward(self, sb, adj, t, y, key, mode='train'):
         keys = jr.split(key,5)
-        z = self.encode(x0, adj, key=keys[0])
+        z = self.encode(sb, adj, key=keys[0])
         z, y, loss_pool, S, A = self.renorm(z, adj, y, key=keys[1], mode=mode) 
         x = jnp.zeros((z.shape[0], self.x_dim))
         t_ = t * jnp.ones((z.shape[0],1))
@@ -221,8 +223,7 @@ class RenONet(eqx.Module):
             z_dec, z_pde = self.branch(z, keys[2])
             (u, txz), grad, lap_x = jax.vmap(vgl)(tx, z_dec)
             red = jax.vmap(self.pde.reduction)(u) 
-            #loss_data += jnp.square(red - y[i]).mean()
-            loss_data += jax.vmap(self.sMASPE)(red,y[i]).mean()
+            loss_data += jax.vmap(self.sMASPE)(red,y[i])
             resid, gpde = jax.vmap(pde_rg)(tx, z_pde, u, grad, lap_x)
             loss_pde += jnp.square(resid).mean()
             loss_gpde += jnp.square(gpde).mean()
@@ -232,7 +233,12 @@ class RenONet(eqx.Module):
                 x = jnp.concatenate([z[:,1:self.kappa], red.reshape(-1,1)], axis=-1)
                 z = z.at[:,:self.kappa].set(x)
 
+        mask = jnp.abs(z[:,:10].sum(1)) > self.eps
+        loss_data = loss_data.at[:].set(loss_data * mask)
+        
         if mode=='train':
+            loss_data = loss_data.at[self.batch_size:].multiply(1e-1)
+            loss_data = loss_data.mean()
             loss = self.w_data * loss_data + self.w_pde * loss_pde + self.w_gpde * loss_gpde + self.w_ms * loss_pool
             return loss        
         if mode=='report': 

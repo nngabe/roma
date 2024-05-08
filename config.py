@@ -9,7 +9,7 @@ config_args = {
         'dropout': (0.01, 'dropout probability'),
         'dropout_branch': (0.01, 'dropout probability in the branch net'),
         'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
-        'epochs': (50000, 'number of epochs to train for'),
+        'epochs': (100000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -44,7 +44,7 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
-        'w_ms': (5e-4, 'weight for assignment matrix entropy loss.'),
+        'w_ms': (1e-4, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'weights for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
@@ -155,7 +155,7 @@ def configure(args):
 
     # read cached pe if loading from path
     #if args.log_path != None: args.use_cached = True
-    args.sampler_batch_size = args.batch_size//args.batch_walk_len + 20
+    args.sampler_batch_size = args.batch_size//args.batch_walk_len + 100
         
     # size of renorm/pooling graphs
     args.manifold_pool = args.manifold
