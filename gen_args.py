@@ -7,7 +7,7 @@ OPTS = []
 
 if batch == '':
     OUT_FILE = 'args/base.txt'
-    opts = {'manifold': ['PoincareBall'], 'w_ms': [1e-4]} 
+    opts = {'manifold': ['Poincare']} 
     OPTS.append(opts)
     opts = {'manifold': ['Euclidean']} 
     OPTS.append(opts)
@@ -18,7 +18,15 @@ if batch == '':
 
 elif batch == 'test':
     OUT_FILE = 'args/test.txt'
-    opts = {'max_norm': [1.], 'max_norm_enc': [1.]} 
+    opts = {'path': [1715101498], 'epochs': [200000]} # 31k 
+    OPTS.append(opts)
+    opts = {'path': [1715101625], 'epochs': [200000]} # 1M 
+    OPTS.append(opts)
+    opts = {'path': [1715101498], 'eta_var': [0.09]} # 31k, 30% noise 
+    OPTS.append(opts)
+    opts = {'path': [1715285662]} # 31k, non-stationary 
+    OPTS.append(opts)
+    opts = {'path': [1715276628]} # Burgers 
     OPTS.append(opts)
 
 elif batch == 'ablations':
@@ -49,21 +57,6 @@ elif batch == 'ablations_extra':
     opts = {'w_pool': [1,2,3]}
     OPTS.append(opts)
 
-elif batch == 'ablation_du':
-    OUT_FILE = 'args/ablation_du.txt'
-    opts = {'manifold': ['PoincareBall'],'eta_var': [9e-2]}
-    OPTS.append(opts)
-    opts = {'level_emb_var': [1],'eta_var': [9e-2]}
-    OPTS.append(opts)
-    opts = {'decoder': ['ResNet'],'eta_var': [9e-2]}
-    OPTS.append(opts)
-    opts = {'branch_net': ['ResNet'],'eta_var': [9e-2]}
-    OPTS.append(opts)
-    opts = {'w_pde':[0.], 'w_gpde': [0.],'eta_var': [9e-2]}
-    OPTS.append(opts)
-    opts = {'w_gpde': [0.],'eta_var': [9e-2]}
-    OPTS.append(opts)
-
 elif batch == 'ablation_ms':
     OUT_FILE = 'args/ablation_ms.txt'
     opts = {'manifold': ['Euclidean']}
@@ -73,18 +66,19 @@ elif batch == 'ablation_ms':
     opts = {'pe_dim': [0]}
     OPTS.append(opts)
 
-elif batch == 'uncertainty_2':
-    OUT_FILE = 'args/uncertainty.txt'
-    opts = {'manifold': ['PoincareBall'], 'eta_var': [9e-2]}
+elif batch == 'seed':
+    OUT_FILE = 'args/seed.txt'
+    opt_ = {'path': [1715101625], 'epochs': [0]}
+    opts = opt_ | {'torch_seed': [1]}
     OPTS.append(opts)
-    opts = {'decoder': ['ResNet'], 'eta_var': [9e-2]}
+    opts = opt_ | {'torch_seed': [2]}
     OPTS.append(opts)
-    opts = {'branch_net': ['ResNet'], 'eta_var': [9e-2]}
+    opts = opt_ | {'torch_seed': [3]}
     OPTS.append(opts)
-    opts = {'w_pde':[0.], 'w_gpde': [0.], 'eta_var':[9e-2]}
+    opts = opt_ | {'torch_seed': [4]}
     OPTS.append(opts)
-    opts = {'level_emb_var': [1], 'eta_var': [9e-2]}
-    OPTS.append(opts)
+
+
 
 elif batch == 'optim':
     OUT_FILE = 'args/optim.txt'

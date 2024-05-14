@@ -25,11 +25,12 @@ config_args = {
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
         'num_col': (3, 'number of colocation points in the time domain'),
-        'batch_size': (216, 'number of nodes in test and batch graphs'),
+        'batch_size': (256, 'number of nodes in test and batch graphs'),
         'sampler_batch_size': (-1, 'factor to down sample training set.'),
         'batch_walk_len': (30, 'length of GraphSAINT sampler random walks.'),
-        'min_subgraph_size': (100, 'minimum subgraph size for training graph sampler.'),
+        'min_subgraph_size': (50, 'minimum subgraph size for training graph sampler.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
+        'torch_seed': (1, 'seed for torch loader'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (4, 'factor of reduction for each pooling step'),
         'pool_steps': (2, 'number of pooling steps'),
@@ -44,7 +45,7 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
-        'w_ms': (1e-4, 'weight for assignment matrix entropy loss.'),
+        'w_ms': (5e-4, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'weights for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
@@ -58,7 +59,7 @@ config_args = {
         'x_var': (1e-7, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
-        'pe_dim': (128, 'dimension of each positional encoding (node2vec,LE,...)'),
+        'pe_dim': (256, 'dimension of each positional encoding (node2vec,LE,...)'),
         'pe_embed_dim': (64, 'dimension of pe linear embedding'),
         'le_size': (-1, 'size of laplacian eigenvector positional encoding'),
         'rw_size': (-1, 'size of random walk (diffusion) positional encoding'),
@@ -145,13 +146,13 @@ def configure(args):
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1.,1.,1.] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-1, 1.] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
-        args.w_pool = [0.,1.,1.]
+        args.w_pool = [0., 1e-1, 1.]
     elif args.w_pool == 2:
-        args.w_pool = [1.,0.,1.]
+        args.w_pool = [1., 0., 1.]
     elif args.w_pool == 3:
-        args.w_pool = [1.,1.,0.]
+        args.w_pool = [1., 1e-1, 0.]
 
     # read cached pe if loading from path
     #if args.log_path != None: args.use_cached = True
@@ -190,7 +191,9 @@ def configure(args):
     if args.pde=='emergent':
         args.pde_dims[0] = args.dec_dims[0] + 5 * args.x_dim
     else: 
-        args.pde_dims[0] = args.dec_dims[0] 
+        args.pde_dims[0] = args.dec_dims[0] + 0 * args.x_dim
+        #args.pde_dims[0] = args.dec_dims[0] + 1 * args.x_dim
+        #args.pde_dims[0] = args.dec_dims[0] + 5 * args.x_dim
         
     args.pool_dims[0] = enc_out - args.kappa
     args.embed_dims[0] = enc_out - args.kappa 

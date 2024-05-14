@@ -68,7 +68,7 @@ if __name__ == '__main__':
     
     # split training and test sets via torch geometric data loaders:
     # i.e. dataloader hold torch.tensors on cpu. pad_graph converts batches to numpy.array on cpu -> jax.Arrays on gpu during training
-    torch.manual_seed(0)
+    torch.manual_seed(args.torch_seed)
     
     # test set
     print(' Initializing loader and sampling test batch...',end='')
