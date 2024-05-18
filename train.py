@@ -43,7 +43,7 @@ if __name__ == '__main__':
     args.pe_path = pe_path_from(args)
 
     print(f'\n time_stamp = {stamp}')
-    print(f'\n data path: {args.data_path}\n adj path: {args.adj_path}\n pe path: {args.pe_path}\n')
+    print(f'\n data_path: {args.data_path}\n adj_path: {args.adj_path}\n pe_path: {args.pe_path}\n')
    
     #torch.set_default_device('cpu')
     torch_device = 'cpu' if not torch.cuda.is_available() else 'cuda'
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     torch.set_default_device('cpu')
     pe = torch.tensor(pe, dtype=torch.float32)
 
-    print(' Reading graph from file...', end='')    
+    print(' Reading graph from data_adj...', end='')    
     A = pd.read_parquet(args.adj_path).T.to_numpy()
     adj = A if A.shape[0]==2 else np.where(A)
     edge_index = torch.tensor(adj,dtype=torch.long)
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     time.sleep(0.2)
     print(' Done.\n')
 
-    print(' Reading timeseries from file...', end='')
+    print(' Reading timeseries from data_path...', end='')
     x = pd.read_parquet(args.data_path).to_numpy()
     time.sleep(0.2)
     print(' Done.\n')
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     
     x_batch, adj_batch, pe_batch = pad_graph(x=x[batch.idx.numpy()], adj=batch.edge_index.numpy(), pe=pe[batch.idx.numpy()], x_size=args.batch_size)
     time.sleep(0.2)
-    print(' Done.\n\n')
+    print(' Done.\n')
 
 
     @jax.jit
@@ -125,6 +125,8 @@ if __name__ == '__main__':
         model = RenONet(args)
         model = utils.init_ortho(model, prng(123))
 
+    param_count = sum(x.size for x in jax.tree_util.tree_leaves(eqx.filter(model, eqx.is_inexact_array)))
+
     if args.verbose: 
         print(f'\n MODULE: MODEL[DIMS](curv)')
         print(f'  encoder: {args.encoder}{args.enc_dims}{args.manifold[:3]}(c={args.c})')
@@ -148,10 +150,11 @@ if __name__ == '__main__':
     log['args'] = vars(copy.copy(args))
     log['train_index'] = idx_train
     log['test_index'] = idx_test
+    log['param_count'] = param_count
 
     if args.verbose:
-        print(f' x[train] = {x[idx_train].shape}, adj[train] = {edge_index_train.shape}')
-        print(f' x[test]  = {x[idx_test].shape},  adj[test]  = {edge_index_test.shape}\n')
+        print(f' x[train] = {x[idx_train].shape}, edge_index[train] = {edge_index_train.shape}')
+        print(f' x[test]  = {x[idx_test].shape},  edge_index[test]  = {edge_index_test.shape}\n')
 
         
         print(f' optim(lr,b1,b2,wd) = {args.optim}(lr={args.lr}, b1={args.b1}, b2={args.b2}, wd={args.weight_decay})')

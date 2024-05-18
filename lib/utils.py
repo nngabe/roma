@@ -86,3 +86,11 @@ def read_model(args):
     model = RenONet(args)
     model = eqx.tree_deserialise_leaves(param_path, model)
     return model, args
+
+def round_to_nearest_thousands(number):
+    suffix = ['','k','M','B','T','P']
+    for i in range(5):
+        if 1000**i > number:
+            break
+    sig = i-1
+    return f'{number / 1000**sig:.0f} {suffix[sig]}'

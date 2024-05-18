@@ -310,8 +310,8 @@ def pos_enc(args, le_size=50, rw_size=50, n2v_size=128, norm=False, use_cached=F
     """ Read positional encoding from path if it exists else compute from adjacency matrix."""
     pe_path = args.pe_path 
     if use_cached and os.path.exists(pe_path): 
-        print(' reading PE (LapPE, RWPE, node2vec) from file...', end='')
+        print(' Reading PE (LapPE, node2vec) from pe_path...', end='')
         pe = pd.read_parquet(pe_path).to_numpy()
-        print(' Done.')
+        print(' Done.\n')
     else: pe = compute_pos_enc(args, le_size=le_size, rw_size=rw_size, n2v_size=n2v_size, norm=norm, device=device)
     return pe

@@ -55,8 +55,8 @@ config_args = {
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
         'coord_dim': (2048, 'dimension of (t,x) embedding'), 
-        't_var': (1e-7, 'variance of time embedding in trunk net'),
-        'x_var': (1e-7, 'variance of space embedding in trunk net'),
+        't_var': (1e-5, 'variance of time embedding in trunk net'),
+        'x_var': (1e-5, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
         'pe_dim': (256, 'dimension of each positional encoding (node2vec,LE,...)'),
@@ -146,7 +146,7 @@ def configure(args):
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1., 1e-1, 1.] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-20, 1.] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
         args.w_pool = [0., 1e-1, 1.]
     elif args.w_pool == 2:
