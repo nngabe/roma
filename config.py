@@ -27,7 +27,7 @@ config_args = {
         'num_col': (3, 'number of colocation points in the time domain'),
         'batch_size': (256, 'number of nodes in test and batch graphs'),
         'sampler_batch_size': (-1, 'factor to down sample training set.'),
-        'batch_walk_len': (30, 'length of GraphSAINT sampler random walks.'),
+        'batch_walk_len': (16, 'length of GraphSAINT sampler random walks.'),
         'min_subgraph_size': (50, 'minimum subgraph size for training graph sampler.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'torch_seed': (1, 'seed for torch loader'),
@@ -45,7 +45,7 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
-        'w_ms': (5e-4, 'weight for assignment matrix entropy loss.'),
+        'w_ms': (1e-2, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'weights for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
@@ -55,8 +55,8 @@ config_args = {
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
         'coord_dim': (2048, 'dimension of (t,x) embedding'), 
-        't_var': (1e-5, 'variance of time embedding in trunk net'),
-        'x_var': (1e-5, 'variance of space embedding in trunk net'),
+        't_var': (1e-7, 'variance of time embedding in trunk net'),
+        'x_var': (1e-7, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
         'pe_dim': (256, 'dimension of each positional encoding (node2vec,LE,...)'),
@@ -89,7 +89,7 @@ config_args = {
         'pde_width': (768, 'dimensions of each pde layers'),
         'pool_width': (768, 'dimensions of each pde layers'),
         'enc_depth': (2, 'dimensions of encoder layers'),
-        'dec_depth': (5,'dimensions of decoder layers'),
+        'dec_depth': (3,'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
         'pool_depth': (2, 'dimensions of each pooling layer'),
         'enc_dims': ([-1]*3, 'dimensions of encoder layers'),
@@ -146,7 +146,7 @@ def configure(args):
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1., 1e-20, 1.] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-20, 1e-1] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
         args.w_pool = [0., 1e-1, 1.]
     elif args.w_pool == 2:
@@ -156,7 +156,7 @@ def configure(args):
 
     # read cached pe if loading from path
     #if args.log_path != None: args.use_cached = True
-    args.sampler_batch_size = args.batch_size//args.batch_walk_len + 100
+    args.sampler_batch_size = args.batch_size//args.batch_walk_len + 10
         
     # size of renorm/pooling graphs
     args.manifold_pool = args.manifold

@@ -155,7 +155,7 @@ class Transformer(eqx.Module):
         self.level_dims = np.array(level_dims).cumsum().tolist()
         self.level_embedding = jr.normal(keys[0], (len(args.pool_size) + 1, in_dim))
         self.positional_embedding = jr.normal(keys[1], (args.num_nodes , in_dim))
-        self.attention_blocks = [AttentionBlock(hidden_dim, hidden_dim, num_heads, dropout_rate, keys[i]) for i in range(self.num_layers)]
+        self.attention_blocks = [AttentionBlock(hidden_dim, 4 * hidden_dim, num_heads, dropout_rate, keys[i]) for i in range(self.num_layers)]
 
         self.dropout = eqx.nn.Dropout(dropout_rate)
         self.norm1 = eqx.nn.LayerNorm(hidden_dim)

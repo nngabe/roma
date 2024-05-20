@@ -81,7 +81,8 @@ if __name__ == '__main__':
     edge_index_test = batch_test.edge_index 
     time.sleep(0.2)
     print(' Done.\n')
-    
+
+    #print(f'batch_walk_len = {args.batch_walk_len}, sampler_batch_size = {args.sampler_batch_size}')    
     # training graph    
     print(' Initializing loader and sampling first training batch...',end='')
     mask_train = torch.ones(n, dtype=torch.int)
@@ -89,12 +90,12 @@ if __name__ == '__main__':
     idx_train = torch.where(mask_train)[0]    
     edge_index_train, _ = subgraph(idx_train, edge_index, relabel_nodes=False)
 
-    idx_train = threshold_subgraphs_by_size(edge_index_train, min_size = args.min_subgraph_size)    
-    edge_index_train, _ = subgraph(idx_train, edge_index, relabel_nodes=False)
-    
+    #idx_train = threshold_subgraphs_by_size(edge_index_train, min_size = args.min_subgraph_size)    
+    #edge_index_train, _ = subgraph(idx_train, edge_index, relabel_nodes=False)
     # initialize batch loader from training graph
     data_train = Data(edge_index=edge_index_train, idx=idx)
     loader = GraphSAINTRandomWalkSampler(data_train, batch_size=args.sampler_batch_size, walk_length=args.batch_walk_len)
+
     batch, loader = get_next_batch(loader, args, data_train)
     
     x_batch, adj_batch, pe_batch = pad_graph(x=x[batch.idx.numpy()], adj=batch.edge_index.numpy(), pe=pe[batch.idx.numpy()], x_size=args.batch_size)
