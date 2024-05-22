@@ -1,4 +1,4 @@
-# ROMA: Renormalized Operators with Coupled Attention
+# ROMA: Renormalized Operators with Multiscale Attention
 
 This repository contains an implementation of a multiscale operator learning framework for modelling and forecasting complex social systems. The framework learns multiscale dynamics and forecasts the evolution of a complex system given an initial adjacency matrix $A^{(0)}$ and history of the system. See figure below for illustration and full slides for details. [[slides](https://www.dropbox.com/scl/fi/2py8doe6gaqjwv9g6pcuw/Multiscale_operator_learning_for_social_dynamics.pdf?rlkey=1ljnspm5zjjvnc9mn66qfcvm6&dl=0)]
 
