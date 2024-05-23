@@ -72,9 +72,9 @@ elif batch == 'ablations_extra':
 
 elif batch == 'walk':
     OUT_FILE = 'args/walk.txt'
-    opt_ = {'path': [1716237798], 'epochs': [20000], 'lr': [1e-6}
+    opt_ = {'path': [1716237798], 'epochs': [25000], 'lr': [1e-6]}
 
-    opts = opt_ | {'max_walk_len': [12,16]}
+    opts = opt_ | {'max_walk_len': [12,16,24]}
     OPTS.append(opts)
 
 elif batch == 'optim':

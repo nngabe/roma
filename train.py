@@ -208,7 +208,7 @@ if __name__ == '__main__':
     schedule = optax.join_schedules(schedules=
         [
           optax.warmup_exponential_decay_schedule(
-              init_value=lr*1e-4,
+              init_value=lr*0.,
               peak_value=lr * 10**-(1.5 * i/num_cycles),
               end_value=lr*1e-2,
               warmup_steps=warmup_steps, 
