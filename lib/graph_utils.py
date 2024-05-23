@@ -18,7 +18,7 @@ def get_next_batch(loader, args, data):
         bsize=batch.num_nodes
         if bsize == args.batch_size:
             break
-    print(f'{bsize}: walk_length = {args.batch_walk_len}, sampler_batch_size = {args.sampler_batch_size}')
+    #print(f'{bsize}: walk_length = {args.batch_walk_len}, sampler_batch_size = {args.sampler_batch_size}')
     if bsize > args.batch_size: 
         args.sampler_batch_size = max(1,args.sampler_batch_size-1)
         loader = GraphSAINTRandomWalkSampler(data, batch_size=args.sampler_batch_size, walk_length=args.batch_walk_len)
@@ -26,7 +26,7 @@ def get_next_batch(loader, args, data):
     if bsize < args.batch_size:
         args.sampler_batch_size += 1
         if args.sampler_batch_size % 3 == 0:
-            args.batch_walk_len += 1
+            args.batch_walk_len = min(1+args.batch_walk_len, args.max_walk_len)
         loader = GraphSAINTRandomWalkSampler(data, batch_size=args.sampler_batch_size, walk_length=args.batch_walk_len)
         batch, loader = get_next_batch(loader, args, data)
     return batch, loader

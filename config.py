@@ -25,9 +25,10 @@ config_args = {
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
         'num_col': (3, 'number of colocation points in the time domain'),
-        'batch_size': (256, 'number of nodes in test and batch graphs'),
+        'batch_size': (192, 'number of nodes in test and batch graphs'),
         'sampler_batch_size': (-1, 'factor to down sample training set.'),
-        'batch_walk_len': (16, 'length of GraphSAINT sampler random walks.'),
+        'batch_walk_len': (10, 'length of GraphSAINT sampler random walks.'),
+        'max_walk_len': (15, 'length of GraphSAINT sampler random walks.'),
         'min_subgraph_size': (50, 'minimum subgraph size for training graph sampler.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'torch_seed': (1, 'seed for torch loader'),
@@ -156,7 +157,8 @@ def configure(args):
 
     # read cached pe if loading from path
     #if args.log_path != None: args.use_cached = True
-    args.sampler_batch_size = args.batch_size//args.batch_walk_len + 10
+    args.batch_walk_len = args.max_walk_len // 2
+    args.sampler_batch_size = args.batch_size//args.batch_walk_len + 20
         
     # size of renorm/pooling graphs
     args.manifold_pool = args.manifold

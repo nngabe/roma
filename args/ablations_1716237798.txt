@@ -1,0 +1,6 @@
+--path 1716237798 --epochs 10000 
+--path 1716237798 --epochs 10000 --decoder ResNet --dec_width 960 
+--path 1716237798 --epochs 10000 --pool_steps 0 
+--path 1716237798 --epochs 10000 --manifold Euclidean 
+--path 1716237798 --epochs 10000 --w_pde 0.0 --w_gpde 0.0 
+--path 1716237798 --epochs 10000 --pe_dim 0 

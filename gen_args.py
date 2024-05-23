@@ -29,19 +29,32 @@ elif batch == 'test':
     opts = {'path': [1715276628]} # Burgers 
     OPTS.append(opts)
 
-elif batch == 'ablations':
-    OUT_FILE = 'args/ablations.txt'
-    opts = {'manifold': ['PoincareBall']}
+elif batch.isnumeric():
+    OUT_FILE = f'args/ablations_{batch}.txt'
+    opt_ = {'path': [batch], 'epochs': [10000]}
+   
+    # default THALES 
+    opts = opt_ 
     OPTS.append(opts)
-    opts = {'manifold': ['Euclidean']}
+   
+    # PINN decoder
+    opts = opt_ | {'decoder': ['ResNet'], 'dec_width': [960]}
     OPTS.append(opts)
-    opts = {'decoder': ['ResNet'], 'dec_width': [960]}
+   
+    # no renorm 
+    opts = opt_ | {'pool_steps': [0]}
     OPTS.append(opts)
-    opts = {'w_pde':[0.], 'w_gpde': [0.]}
+   
+    # Euclidean manifold 
+    opts = opt_ | {'manifold': ['Euclidean']}
     OPTS.append(opts)
-    opts = {'pool_steps': [0]}
+    
+    # no PDE/gPDE
+    opts = opt_ | {'w_pde':[0.], 'w_gpde': [0.]}
     OPTS.append(opts)
-    opts = {'pe_dim': [0]}
+    
+    # no graph positional encoding
+    opts = opt_ | {'pe_dim': [0]}
     OPTS.append(opts)
 
 elif batch == 'ablations_extra':
@@ -57,28 +70,12 @@ elif batch == 'ablations_extra':
     opts = {'w_pool': [1,2,3]}
     OPTS.append(opts)
 
-elif batch == 'ablation_ms':
-    OUT_FILE = 'args/ablation_ms.txt'
-    opts = {'manifold': ['Euclidean']}
-    OPTS.append(opts)
-    opts = {'w_pool': [1,2,3]}
-    OPTS.append(opts)
-    opts = {'pe_dim': [0]}
-    OPTS.append(opts)
+elif batch == 'walk':
+    OUT_FILE = 'args/walk.txt'
+    opt_ = {'path': [1716237798], 'epochs': [20000], 'lr': [1e-6}
 
-elif batch == 'seed':
-    OUT_FILE = 'args/seed.txt'
-    opt_ = {'path': [1715101625], 'epochs': [0]}
-    opts = opt_ | {'torch_seed': [1]}
+    opts = opt_ | {'max_walk_len': [12,16]}
     OPTS.append(opts)
-    opts = opt_ | {'torch_seed': [2]}
-    OPTS.append(opts)
-    opts = opt_ | {'torch_seed': [3]}
-    OPTS.append(opts)
-    opts = opt_ | {'torch_seed': [4]}
-    OPTS.append(opts)
-
-
 
 elif batch == 'optim':
     OUT_FILE = 'args/optim.txt'
