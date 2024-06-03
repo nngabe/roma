@@ -13,7 +13,8 @@ prng = lambda: jax.random.PRNGKey(0)
 
 def get_next_batch(loader, args, data):
     bsize = 0
-    for i in range(50):
+    patience = 100
+    for i in range(patience):
         batch = next(iter(loader))
         bsize=batch.num_nodes
         if bsize == args.batch_size:
@@ -25,8 +26,6 @@ def get_next_batch(loader, args, data):
         batch, loader = get_next_batch(loader, args, data)
     if bsize < args.batch_size:
         args.sampler_batch_size += 1
-        if args.sampler_batch_size % 3 == 0:
-            args.batch_walk_len = min(1+args.batch_walk_len, args.max_walk_len)
         loader = GraphSAINTRandomWalkSampler(data, batch_size=args.sampler_batch_size, walk_length=args.batch_walk_len)
         batch, loader = get_next_batch(loader, args, data)
     return batch, loader

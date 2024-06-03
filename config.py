@@ -6,9 +6,8 @@ from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
         'lr': (1e-5, 'learning rate'),
-        'dropout': (0.01, 'dropout probability'),
-        'dropout_branch': (0.01, 'dropout probability in the branch net'),
-        'dropout_trunk': (0.01, 'dropout probability in the trunk net'),
+        'dropout': (0.1, 'dropout probability'),
+        'dropout_op': (2, 'dropout setting for operator networks, see below.'),
         'epochs': (100000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
@@ -19,22 +18,21 @@ config_args = {
         'epsilon': (1e-8, 'epsilon in adam denominator'),
         'beta': (.99, 'moving average coefficient for SLAW'),
         'log_freq': (100, 'how often to compute print train/val metrics (in epochs)'),
-        'batch_freq': (1, 'how often to resample training graph'),
+        'batch_freq': (2, 'how often to resample training graph'),
         'max_norm': (1., 'max norm for gradient clipping, or None for no gradient clipping'),
         'max_norm_enc': (1., 'max norm for graph network gradient clipping, or None for no gradient clipping'),
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
-        'num_col': (3, 'number of colocation points in the time domain'),
-        'batch_size': (192, 'number of nodes in test and batch graphs'),
-        'sampler_batch_size': (-1, 'factor to down sample training set.'),
-        'batch_walk_len': (10, 'length of GraphSAINT sampler random walks.'),
-        'max_walk_len': (15, 'length of GraphSAINT sampler random walks.'),
+        'num_col': (1, 'number of colocation points in the time domain'),
+        'batch_size': (256, 'number of nodes in test and batch graphs'),
+        'sampler_batch_size': (-1, 'number of nodes to seed GraphSAINT random walks'),
+        'batch_walk_len': (12, 'length of GraphSAINT sampler random walks.'),
         'min_subgraph_size': (50, 'minimum subgraph size for training graph sampler.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'torch_seed': (1, 'seed for torch loader'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (4, 'factor of reduction for each pooling step'),
-        'pool_steps': (2, 'number of pooling steps'),
+        'pool_steps': (1, 'number of pooling steps'),
         'eta_var': (1e-4, 'variance of multiplicative noise'),
     },
     'model_config': {
@@ -46,8 +44,8 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+3, 'weight for gpde loss.'),
-        'w_ms': (1e-2, 'weight for assignment matrix entropy loss.'),
-        'w_pool': (0, 'weights for S entropy, A entropy, and LP respectively.'),
+        'w_ms': (1e-1, 'weight for assignment matrix entropy loss.'),
+        'w_pool': (0, 'which weight config for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
@@ -55,13 +53,13 @@ config_args = {
 
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
-        'coord_dim': (2048, 'dimension of (t,x) embedding'), 
+        'coord_dim': (1024, 'dimension of (t,x) embedding'), 
         't_var': (1e-7, 'variance of time embedding in trunk net'),
         'x_var': (1e-7, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
         'pe_dim': (256, 'dimension of each positional encoding (node2vec,LE,...)'),
-        'pe_embed_dim': (64, 'dimension of pe linear embedding'),
+        'pe_embed_dim': (128, 'dimension of pe linear embedding'),
         'le_size': (-1, 'size of laplacian eigenvector positional encoding'),
         'rw_size': (-1, 'size of random walk (diffusion) positional encoding'),
         'n2v_size': (-1, 'size of node2vec positional encoding'),
@@ -75,79 +73,96 @@ config_args = {
         
         # specify models. pde function layers are the same as the decoder layers by default.
         'encoder': ('HGCN', 'which encoder to use'),
-        'decoder': ('DeepOnet', 'which decoder to use'),
+        'decoder': ('Operator', 'which decoder to use'),
         'pde': ('emergent', 'which pde to use for the pde loss'),
         'pool': ('HGCN', 'which model to compute coarsening matrices'),
+        
+        # operator model params
+        'trunk_net': ('MLP', 'trunk network architecture.'),
+        'branch_net': ('Transformer', 'branch net architecture.'),
+        'nonlinear': (1, 'nonlinear decoder architecture (NOMAD) or linear (DeepONet)'),
+        'nonlinear_pde': (0, 'nonlinear pde architecture (NOMAD) or linear (DeepONet)'),
+        'shared_branch': (True, 'use the same branch net for forecast and pde operator'),
+        'p_basis': (-1, 'size of DeepOnet basis'),
         'func_space': ('GRF', 'function space for DeepOnet.'),
         'length_scale': (1., 'length scale for GRF'),
         'num_func': (128, 'number of functions to sample from func_space'),
         'num_spl': (100, 'number of spline points for GRF'),
-        'p_basis': (64, 'size of DeepOnet basis'),
+        'num_heads': (4, 'number of heads in transformer blocks.'),
+        'trunk_res': (True, 'use residual connections in trunk net.'),
+        'trunk_norm': (True, 'use layer norm in trunk net.'),
+        'pos_emb_var': (1/4, 'variance of transformer positional embedding at l=0 and l>0, respectively'),
+        'level_emb_var': (1., 'variance of transformer level embedding'),
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
         'enc_width': (256, 'dimensions of encoder layers'),
-        'dec_width': (768,'dimensions of decoder layers'),
-        'pde_width': (768, 'dimensions of each pde layers'),
-        'pool_width': (768, 'dimensions of each pde layers'),
+        'dec_width': (448, 'dimensions of decoder layers'),
+        'pde_width': (-1, 'dimensions of each pde layers'),
+        'pool_width': (-1, 'dimensions of each pde layers'),
         'enc_depth': (2, 'dimensions of encoder layers'),
-        'dec_depth': (3,'dimensions of decoder layers'),
+        'dec_depth': (4, 'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
-        'pool_depth': (2, 'dimensions of each pooling layer'),
+        'pool_depth': (3, 'dimensions of each pooling layer'),
         'enc_dims': ([-1]*3, 'dimensions of encoder layers'),
         'dec_dims': ([-1]*3,'dimensions of decoder layers'),
         'pde_dims': ([-1,-1,1], 'dimensions of each pde layers'),
         'pool_dims': ([-1]*3, 'dimesions of pooling layers.'), 
         'embed_dims': ([-1]*3, 'dimensions of embedding layers.'),
 
-        # DeepONet params
-        'trunk_net': ('MLP', 'trunk network architecture.'),
-        'branch_net': ('Transformer', 'branch net architecture.'),
-        'num_heads': (8, 'number of heads in transformer blocks.'),
-        'trunk_res': (True, 'use residual connections in trunk net.'),
-        'trunk_norm': (True, 'use layer norm in trunk net.'),
-        'pos_emb_var': (0, 'variance of transformer positional embedding at l=0 and l>0, respectively'),
-        'level_emb_var': (0, 'variance of transformer level embedding'),
-         
+        
         # graph network params
         'res': (True, 'whether to use sum skip connections or not.'),
         'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
         'c': (1/8, 'hyperbolic radius, set to None for trainable curvature'),
-        'edge_conv': (True, 'use edge convolution or not'),
-        'agg': ('sum', 'aggregation function to use'),
+        'edge_conv': ('mlp', 'use edge convolution or not'),
+        'agg': ('multi', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
+        'lin_skip': (True, 'use linear or identity skip connections when consecutive layers are the same size'),
         'use_att': (0, 'whether to use attention in next module to be inited.'),
-        'use_att_enc': (0, 'whether to use attention in encoder layers or not'),
-        'use_att_pool': (0, 'whether to use attention in graph pooling layers or not'),
         'use_layer_norm': (0, 'whether or not to use layernorm'),
-        'use_bias': (1, 'whether to use a bias in linear layers'),
-        'local_agg': (1, 'whether to local tangent space aggregation or not')
+        #'use_bias': (1, 'whether to use a bias in linear layers'),
+        #'local_agg': (1, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
-        'path': ('1715101498','from which to infer data path'),
+        'path': ('1716237798','from which to infer data path'),
         'log_path': (None, 'snippet from which to infer log/model path.'),
     }
 }
 
 def configure(args):
+    #print('nonlinear: ', args.nonlinear)
+    
+    if args.dropout_op == 0:
+        args.dropout_branch = args.dropout
+        args.dropout_trunk = args.dropout
+        args.dropout = args.dropout
+    elif args.dropout_op == 1:
+        args.dropout_branch = args.dropout
+        args.dropout_trunk = 0. 
+        args.dropout = args.dropout
+    elif args.dropout_op == 2: 
+        args.dropout_branch = args.dropout 
+        args.dropout_trunk = 0.
+        args.dropout = 0. 
+    elif args.dropout_op == 3:
+        args.dropout_branch = args.dropout
+        args.dropout_trunk = args.dropout/10 
+        args.dropout = args.dropout/2
 
-    args.dropout_branch = args.dropout
-    args.dropout_trunk = args.dropout
+    args.max_norm_enc = args.max_norm
+
+    args.pool_width = args.dec_width
+    args.pde_width = args.dec_width
+    if args.p_basis == -1: args.p_basis = args.dec_width
 
     # multiscale embedding weights
-    if args.pos_emb_var == 0: 
-        args.pos_emb_var = [1/4, 1.]
-    elif args.pos_emb_var > 0: 
-        args.pos_emb_var = [2**((1-i)/3), 1.]
-   
-    if args.level_emb_var == 0:
-        args.level_emb_var = [1.]
-    elif args.level_emb_var == 1: 
-        args.level_emb_var = [0.]
+    args.pos_emb_var = [args.pos_emb_var, 1.]
+    args.level_emb_var = [args.level_emb_var]
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1., 1e-20, 1e-1] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-20, 1.] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
         args.w_pool = [0., 1e-1, 1.]
     elif args.w_pool == 2:
@@ -157,7 +172,6 @@ def configure(args):
 
     # read cached pe if loading from path
     #if args.log_path != None: args.use_cached = True
-    args.batch_walk_len = args.max_walk_len // 2
     args.sampler_batch_size = args.batch_size//args.batch_walk_len + 20
         
     # size of renorm/pooling graphs
@@ -173,7 +187,8 @@ def configure(args):
     
     # layer dims (enc,renorm,pde,dec)
     args.pde_depth = args.dec_depth
-    args.enc_dims[0] = args.kappa + args.pe_embed_dim
+    args.enc_dims[0] = 2 * args.pe_embed_dim + args.kappa
+    #args.enc_dims[0] = args.kappa + args.pe_embed_dim
     #args.enc_dims[0] += args.le_size + args.rw_size + args.n2v_size
     args.enc_dims[-1] = args.enc_width 
     args.dec_dims[-1] = args.x_dim
@@ -201,6 +216,7 @@ def configure(args):
     args.embed_dims[0] = enc_out - args.kappa 
     args.pool_dims[-1] = args.pool_size[0] * args.pool_red
     args.embed_dims[-1] = args.embed_dims[0] 
+
 
     return args 
 

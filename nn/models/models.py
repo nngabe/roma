@@ -37,6 +37,7 @@ class GraphNet(eqx.Module):
     pe_dim: int
     u_dim: int
     euclidean: bool
+    dropout: eqx.nn.Dropout
 
     def __init__(self, args, module):
         super(GraphNet, self).__init__()
@@ -47,6 +48,7 @@ class GraphNet(eqx.Module):
         self.pe_dim = args.pe_dim
         self.u_dim = args.kappa
         self.euclidean = True if args.manifold=='Euclidean' else False
+        self.dropout = eqx.nn.Dropout(args.dropout)
 
     def exp(self, x):
         x = self.manifold.proj_tan0(x, c=self.c)
@@ -63,8 +65,10 @@ class GraphNet(eqx.Module):
         x = self.exp(x)
         for conv,lin,norm in zip(self.layers, self.lin, self.layer_norm):
             h,_ = conv(x, adj, key, w)
+            h = self.log(h)
+            h = self.dropout(h, key=key)
             if self.res:
-                x = jax.vmap(lin)(self.log(x)) + self.log(h)
+                x = jax.vmap(lin)(self.log(x)) + h
             if self.norm:
                 x = jax.vmap(norm)(x)
             x_i.append(x)
@@ -210,11 +214,11 @@ class MLP(eqx.Module):
     lin: List[eqx.Module] 
     def __init__(self, in_dim, out_dim, args, key, res=True, norm=True):
         keys = jr.split(key, args.dec_depth + 2 )
-        hidden_dim = args.dec_width
+        hidden_dim = args.dec_width * 2
         self.num_layers = args.dec_depth
         self.res = res
         dropout_rate = args.dropout_trunk
-        dims = [in_dim] + self.num_layers * [args.dec_width] + [out_dim]
+        dims = [in_dim] + self.num_layers * [hidden_dim] + [out_dim]
         self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(self.num_layers+1)]
         self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers+1) ]
 
@@ -244,8 +248,8 @@ class ResNet(eqx.Module):
         
         keys = jr.split(prng(), args.num_layers + 2 )
         self.res = args.trunk_res
-        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(args.num_layers - 1)]
-        self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(args.num_layers - 1)]
+        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(args.num_layers - 1)] 
+        self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(args.num_layers - 1)]
 
     def __call__(self, x, key):
 
@@ -263,7 +267,7 @@ class ResNet(eqx.Module):
 
 
 
-class DeepOnet(eqx.Module):
+class Operator(eqx.Module):
     
     trunk: eqx.Module
     branch: eqx.Module
@@ -274,15 +278,17 @@ class DeepOnet(eqx.Module):
     p_dim: int
     trunk_dims: List[int]
     branch_dims: List[int]
+    nonlinear: bool
 
-    def __init__(self, args, module): 
-        super(DeepOnet, self).__init__()
+    def __init__(self, args, module, shared=False): 
+        super(Operator, self).__init__()
         self.func_space = getattr(lib.function_spaces, args.func_space)(num_func=args.num_func)
         args, dims, act, _ = get_dim_act(args, module)
         self.x_dim = args.x_dim
         self.tx_dim = 1 + args.x_dim 
         self.u_dim = args.kappa
         self.p_dim = args.p_basis
+        self.nonlinear = args.nonlinear
 
         keys = jr.split(prng(), 5)
         
@@ -294,28 +300,20 @@ class DeepOnet(eqx.Module):
 
         # set dimensions of trunk net
         self.trunk_dims = copy.copy(dims)
-        self.trunk_dims[0] = dims[0] - self.u_dim 
-        self.trunk_dims[-1] = self.p_dim
-
-        self.branch = eval(args.branch_net)(self.branch_dims[0], self.branch_dims[-1], args, keys[0])
+        self.trunk_dims[0] = dims[0] - self.u_dim
+        if module=='pde' and args.nonlinear_pde:
+            self.trunk_dims[0] += self.p_dim * args.x_dim 
+            self.trunk_dims[-1] = self.trunk_dims[-1]
+        elif module=='pde' and not args.nonlinear_pde:
+            self.trunk_dims[-1] = self.p_dim
+        elif args.nonlinear:
+            self.trunk_dims[0] += self.p_dim * args.x_dim 
+            self.trunk_dims[-1] = self.trunk_dims[-1]
+        else:
+            self.trunk_dims[-1] = self.p_dim
+        
+        self.branch = eval(args.branch_net)(self.branch_dims[0], self.branch_dims[-1], args, keys[0]) if not shared else None
         self.trunk = eval(args.trunk_net)(self.trunk_dims[0], self.trunk_dims[-1], args, keys[1], res=args.trunk_res, norm=args.trunk_norm)
-
-    def __call__(self, x, adj=None, w=None, key=prng(0), inspect=False):
-        keys = jax.random.split(key,10)
-        tx, uz = x[:self.tx_dim], x[self.tx_dim:]
-        u, z = uz[:self.u_dim], uz[self.u_dim:]
-        
-        u = self.func_space(u)
-        b = self.branch(u, keys[1])
-        
-        txz = jnp.concatenate([tx,z],axis=-1)
-        t = self.trunk(txz, keys[0])
-        
-        b = b.reshape(-1, self.p_dim, self.x_dim)
-        t = t.reshape(-1, self.p_dim)
-        G = jnp.einsum('ijk,ij -> ik', b, t) / self.p_dim
-        
-        return G
 
 
 class HGCN(GraphNet):
@@ -338,6 +336,8 @@ class HGCN(GraphNet):
                 hyp_layers.HGCNLayer(in_dim, out_dim, key, args, manifold=self.manifold) 
                 )
             lin_layers.append(eqx.nn.Linear(in_dim, out_dim, key=key))
+            #if args.lin_skip: lin_layers.append(eqx.nn.Linear(in_dim, out_dim, key=key))
+            #else: lin_layers.append(eqx.nn.Linear(in_dim, out_dim, key=key) if in_dim != out_dim else (lambda x: x) )
             layer_norms.append(eqx.nn.LayerNorm(out_dim))
             key = jax.random.split(key)[0]
         self.layers = nn.Sequential(hgc_layers)

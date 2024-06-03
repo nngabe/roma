@@ -12,7 +12,7 @@ import numpy as onp
 import jax.numpy as jnp
 from argparse import Namespace
 
-from nn.models.renonet import RenONet
+from nn.models.roma import ROMA
 
 def clip_tree(tree, max_norm, spec=eqx.is_inexact_array):
   clip_fn = lambda x: jnp.clip(x, -max_norm, max_norm) if spec(x) else x

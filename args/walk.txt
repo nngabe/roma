@@ -1,1 +1,6 @@
---path 1716237798 --epochs 25000 --lr 1e-06 --max_walk_len 16 --num_col 1 --batch_freq 5
+--path 1716237798 --epochs 20000 --lr 2e-6  
+--path 1716237798 --epochs 20000 --lr 2e-6 --max_norm .1   
+--path 1716237798 --epochs 20000 --lr 2e-6  --dropout_op 3  
+--path 1716237798 --epochs 20000 --lr 2e-6  --pos_emb_var .5
+--path 1716237798 --epochs 20000 --lr 2e-6  --pos_emb_var 1. --level_emb_var .5
+--path 1716237798 --epochs 200000 --dropout_op 3 --max_norm .1 --pos_emb_var .5

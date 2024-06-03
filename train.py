@@ -22,7 +22,7 @@ from torch_geometric.data import Data
 from torch_geometric.loader import GraphSAINTRandomWalkSampler
 from torch_geometric.transforms import LargestConnectedComponents as LCC
 
-from nn.models.renonet import RenONet, loss_train, loss_report, make_step
+from nn.models.roma import ROMA, loss_train, loss_report, make_step
 from config import parser, configure
 
 from lib import utils
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     stamp = str(int(time.time()))
     args = parser.parse_args()
     args = configure(args)    
-
+    
     args.data_path = glob.glob(f'../data/x*{args.path}*parquet')[0]
     args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*')[0]
     args.pe_path = pe_path_from(args)
@@ -123,10 +123,8 @@ if __name__ == '__main__':
     if args.log_path:
         model, args = utils.read_model(args)
     else:
-        model = RenONet(args)
+        model = ROMA(args)
         model = utils.init_ortho(model, prng(123))
-
-    param_count = sum(x.size for x in jax.tree_util.tree_leaves(eqx.filter(model, eqx.is_inexact_array)))
 
     if args.verbose: 
         print(f'\n MODULE: MODEL[DIMS](curv)')
@@ -139,13 +137,21 @@ if __name__ == '__main__':
         print(f'  embed:')
         for i in model.pool.pools.keys(): 
             print(f'   embed_{i}: {args.pool}{args.embed_dims}')
-        print(f'  decoder: {args.decoder}{args.dec_dims}')
-        print(f'  pde: {args.pde}/{args.decoder}{args.pde_dims}')
-        if args.decoder == 'DeepOnet':
-            print(f'  func_space: {args.func_space}(l={args.length_scale})')
-            print(f'  branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
-            print(f'  pos_emb_var = {args.pos_emb_var}, level_emb_var = {args.level_emb_var}')
-            print(f'  time_enc: fourier[{args.coord_dim}][t_var={args.t_var},x_var={args.x_var}]\n')
+        if args.decoder == 'Operator':
+            print(f'  decoder: {args.decoder}{model.decoder.branch_dims} -> {args.dec_dims[-1:]}')
+            print(f'  pde: {args.pde}/{args.decoder}{model.decoder.branch_dims} -> {args.pde_dims[-1:]}')
+            print(f'    nonlinear[dec,pde]: {bool(args.nonlinear)},{bool(args.nonlinear_pde)}')
+            print(f'    func_space: {args.func_space}(l={args.length_scale})')
+            print(f'    branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
+            print(f'    pos_emb_var = {args.pos_emb_var}, level_emb_var = {args.level_emb_var}')
+            print(f'    time_enc: fourier[{args.coord_dim}][t_var={args.t_var},x_var={args.x_var}]\n')
+        else:        
+            print(f'  decoder: {args.decoder}{args.dec_dims}')
+            print(f'  pde: {args.pde}/{args.decoder}{args.pde_dims}')
+
+    param_count = sum(x.size for x in jax.tree_util.tree_leaves(eqx.filter(model, eqx.is_inexact_array)))
+    pc = utils.round_to_nearest_thousands(param_count)
+    print(f'  NUM_PARAMS = {pc}\n\n')
      
     log = {}
     log['args'] = vars(copy.copy(args))

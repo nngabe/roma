@@ -18,24 +18,26 @@ prng = lambda i=0: jax.random.PRNGKey(i)
 act_dict = {'relu': jax.nn.relu, 'silu': jax.nn.silu, 'lrelu': jax.nn.leaky_relu}
 segment_softmax = lambda t: lambda vals, ids, n: jraph.segment_sum(vals * jraph.segment_softmax(t * vals, ids, n), ids, n)
 
-class DenseAtt(eqx.Module):
+class Attn(eqx.Module):
     
     mlp: eqx.nn.MLP
     heads: int
     
-    def __init__(self, in_features, heads=6, alpha=0.2):
+    def __init__(self, in_features, heads=6):
         super(DenseAtt, self).__init__()
-        act = lambda x: jax.nn.leaky_relu(x,alpha)
-        self.mlp = eqx.nn.MLP( 3 * in_features, heads, width_size=2 * in_features, depth=2, activation=jax.nn.gelu, key = prng())
+        self.mlp = eqx.nn.MLP( 3 * in_features, heads, width_size= 6 * in_features, depth=2, activation=jax.nn.gelu, key = prng())
         self.heads = heads
 
-    def __call__(self, x):
+    def __call__(self, x, adj = None):
         n = x.shape[0]
-        u1,u2 = jnp.triu_indices(n,1)
-        l1,l2 = jnp.tril_indices(n)
-        i,j = jnp.concatenate([u1,l1]), jnp.concatenate([u2,l2])
+        if adj:
+            s,r = adj
+        else: # dense attention
+            u1,u2 = jnp.triu_indices(n,1)
+            l1,l2 = jnp.tril_indices(n)
+            s,r = jnp.concatenate([u1,l1]), jnp.concatenate([u2,l2])
 
-        x_cat = jnp.concatenate([x[i], x[j], x[j]-x[i]], axis=-1)
+        x_cat = jnp.concatenate([x[s], x[r], x[r]-x[s]], axis=-1)
         attn = jax.vmap(self.mlp)(x_cat).reshape(self.heads,n,n)
         attn = jax.nn.softmax(attn)
         return attn
@@ -74,20 +76,22 @@ class HypAgg(eqx.Module):
     c: float
     use_att: bool
     agg: str
-    attn: DenseAtt
-    edge_conv: eqx.nn.MLP
-    agg_conv: eqx.nn.MLP
+    attn: Attn
+    edge_conv: eqx.Module
+    agg_embed: eqx.Module
     dropout: Callable
 
-    def __init__(self, in_features, manifold, args, edge_conv=True, agg='sum'):
+    def __init__(self, in_features, manifold, args):
         super(HypAgg, self).__init__()
         self.manifold = manifold
         self.c = args.c
         self.agg = args.agg
         self.use_att = args.use_att
         self.attn = DenseAtt(in_features, heads=args.num_gat_heads) if self.use_att else None
-        self.edge_conv = eqx.nn.MLP(3 * in_features, in_features, width_size=2*in_features, depth=2, activation=jax.nn.gelu, key=prng(0)) if edge_conv else None
-        self.agg_conv = eqx.nn.MLP(4 * in_features, in_features, width_size=2*in_features, depth=2, activation=jax.nn.gelu, key=prng(1))
+        self.edge_conv = eqx.nn.MLP(3 * in_features, in_features, width_size=6*in_features, depth=2, activation=jax.nn.gelu, key=prng(0)) if args.edge_conv=='mlp' else None
+        self.edge_conv = eqx.nn.Linear(3 * in_features, in_features, key=prng(0)) if args.edge_conv=='linear' else self.edge_conv
+        self.agg_embed = eqx.nn.MLP(4 * in_features, in_features, width_size=6*in_features, depth=2, activation=jax.nn.gelu, key=prng(1)) if args.agg=='multi' else None
+        #self.agg_embed = eqx.nn.Linear(4 * in_features, in_features, width_size=4*in_features, depth=2, activation=jax.nn.gelu, key=prng(1)) if args.agg=='multi' else None
         self.dropout = eqx.nn.Dropout(args.dropout)
 
     def __call__(self, x, adj, key, w=None):
@@ -113,12 +117,13 @@ class HypAgg(eqx.Module):
                 else: 
                     x_agg = jraph.segment_sum(x_s, r, n)
             elif self.agg == 'multi':
-                temp = jnp.array([1.,10.])
+                temp = jnp.array([1.])
                 x_softmax = [segment_softmax(t)(x_s, r, n) for t in temp]
+                x_sum = jraph.segment_sum(x_s, r, n)
                 x_mean = jraph.segment_mean(x_s, r, n)
                 x_var = jraph.segment_variance(x_s, r, n)
-                x_agg = jnp.concatenate([x_mean, x_var] + x_softmax, axis=-1)
-                x_agg = jax.vmap(self.agg_conv)(x_agg)
+                x_agg = jnp.concatenate([x_sum, x_mean, x_var] + x_softmax, axis=-1)
+                x_agg = jax.vmap(self.agg_embed)(x_agg)
             elif self.agg == 'mean':
                 x_agg = jraph.segment_mean(x_s, r, n)
             elif self.agg == 'sum':
@@ -162,7 +167,7 @@ class HGCNLayer(eqx.Module):
         super(HGCNLayer, self).__init__()
         c_in, c_out = args.c, args.c
         self.linear = HypLinear(in_features, out_features, manifold, key, args) 
-        self.agg = HypAgg(out_features, manifold, args, edge_conv=args.edge_conv, agg=args.agg)
+        self.agg = HypAgg(out_features, manifold, args) 
         self.hyp_act = HypAct(manifold, c_in, c_out, act=jax.nn.gelu, dropout_rate=args.dropout)
 
     def __call__(self, x, adj, key, w=None):

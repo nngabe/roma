@@ -8,12 +8,13 @@ import equinox as eqx
 
 from nn import manifolds
 from nn.models import models
-from aux import aux
+from nn.models import pde
+from nn.models import pooling
 from lib.graph_utils import dense_to_coo
 
 prng = lambda i=0: jr.PRNGKey(i)
 
-class RenONet(eqx.Module):
+class ROMA(eqx.Module):
     encoder: eqx.Module
     decoder: eqx.Module
     pde: eqx.Module
@@ -35,17 +36,20 @@ class RenONet(eqx.Module):
     beta: np.float32
     B: jnp.ndarray = eqx.field(static=True)
     embed_pe: eqx.nn.Linear
+    embed_s: eqx.nn.Linear
     euclidean: bool
+    nonlinear: bool
     eps: jnp.float32
+    w_l: jnp.float32 = eqx.field(static=True)
 
     def __init__(self, args):
-        super(RenONet, self).__init__()
+        super(ROMA, self).__init__()
         self.kappa = args.kappa 
         self.batch_size = args.batch_size
         self.encoder = getattr(models, args.encoder)(args, module='enc')
         self.decoder = getattr(models, args.decoder)(args, module='dec')
-        self.pde = getattr(aux, args.pde)(args, module='pde', parent=self)
-        self.pool = getattr(aux, 'pooling')(args, module='pool')
+        self.pde = getattr(pde, args.pde)(args, module='pde', parent=self)
+        self.pool = getattr(pooling, 'pooling')(args, module='pool')
         self.manifold = getattr(manifolds, args.manifold)()
         self.c = args.c
         self.w_data = args.w_data
@@ -60,10 +64,13 @@ class RenONet(eqx.Module):
         self.scalers = np.concatenate([[args.t_var], self.x_dim * [args.x_var]], axis=0).reshape(-1,1)
         self.beta = args.beta 
         self.B = self.scalers * jr.normal(prng(), (1 + self.x_dim, args.coord_dim//2))
-        #self.embed_pe = eqx.nn.MLP(args.pe_size, self.kappa, 3 * self.kappa, 2, activation = jax.nn.gelu, key=prng()) 
-        self.embed_pe = eqx.nn.Linear(args.pe_size, args.pe_embed_dim, key=prng()) 
+        #self.embed_pe = eqx.nn.MLP(args.pe_size, self.kappa, 4 * self.kappa, 2, activation = jax.nn.gelu, key=prng()) 
+        self.embed_s = eqx.nn.Linear(args.kappa, args.pe_embed_dim*2, key = prng(1))
+        self.embed_pe = eqx.nn.Linear(args.pe_size, args.pe_embed_dim*2, key = prng(2)) 
         self.euclidean = True if args.manifold=='Euclidean' else False 
+        self.nonlinear = args.nonlinear
         self.eps = 1e-15
+        self.w_l = 1.
 
     def coord_encode(self, tx):
         if len(tx.shape)>1:
@@ -96,20 +103,24 @@ class RenONet(eqx.Module):
     def encode(self, x, adj, key):
         s,pe = x[:,:self.kappa], x[:,self.kappa:]
         pe = jax.vmap(self.embed_pe)(pe)
+        se = jax.vmap(self.embed_s)(s)
+        #pe += se
         x = jnp.concatenate([s,pe], axis=-1)
-        z = self.encoder(x, adj, key)
-        return z
+        x = self.encoder(x, adj, key)
+        #x = jnp.concatenate([s, x], axis=-1)
+        return x
 
     def embed_pool(self, z, adj, w, i, key):
         keys = jr.split(key,4)
-        z0 = z[:,:self.kappa]
+        s = z[:,:self.kappa]
         zi = z[:,self.kappa:]
         ze = self.pool.embed[i](zi, adj, keys[0], w)
-        s = self.pool[i](zi, adj, keys[1], w)
-        z = jnp.concatenate([z0,ze], axis=-1)
-        return z,s
+        S = self.pool[i](zi, adj, keys[1], w)
+        z = jnp.concatenate([s,ze], axis=-1)
+        return z,S
 
     def renorm(self, x, adj, y, key, mode='train'):
+        #x = x[:,self.kappa:]
         w = None
         loss_ent = 0.
         S = {}
@@ -123,7 +134,7 @@ class RenONet(eqx.Module):
             s = self.log(s)
             s = jax.vmap(self.ln_pool[i])(s)
             #s = jax.nn.softmax(s, axis=0)
-            s = s/jnp.linalg.norm(s, axis=1, keepdims=True)
+            s = s/jnp.linalg.norm(s, axis=0, keepdims=True)
             S[i] = s**2
             m,n = S[i].shape
             x = jnp.einsum('ij,ik -> jk', S[i], z) * (n/m)
@@ -145,18 +156,20 @@ class RenONet(eqx.Module):
             return z_r, y_r, loss_pool, S, A
 
     def decode(self, tx, z, key):
-        #t = self.time_encode(tx[:1])
-        #tx = jnp.concatenate([t,tx[1:]], axis=-1)
         tx = self.coord_encode(tx) 
         if hasattr(self.decoder, 'branch'):
             p_dim, x_dim = self.decoder.p_dim, self.decoder.x_dim
             b_dim = p_dim * x_dim
-            branch,z = z[:b_dim], z[b_dim:]
+            b = z[:b_dim]
+            z = z if self.nonlinear else z[b_dim:]
             txz = jnp.concatenate([tx, z], axis=-1)
-            trunk = self.decoder.trunk(txz, key)
-            branch = branch.reshape(p_dim, x_dim)
-            trunk = trunk.reshape(p_dim)
-            u = jnp.einsum('ij,i -> j', branch, trunk) / p_dim
+            if self.nonlinear:
+                u = self.decoder.trunk(txz, key) / x_dim
+            elif not self.nonlinear:
+                trunk = self.decoder.trunk(txz, key)
+                branch = b.reshape(p_dim, x_dim)
+                trunk = trunk.reshape(p_dim)
+                u = jnp.einsum('ij,i -> j', branch, trunk) / p_dim
         else:    
             txz = jnp.concatenate([tx,z], axis=-1)
             u = self.decoder(txz, key=key)
@@ -185,6 +198,7 @@ class RenONet(eqx.Module):
             b = self.decoder.func_space(b, keys[0])
             b_dec = self.decoder.branch(b, keys[1])
             b_pde = self.decoder.branch(b, keys[2])
+            #b_pde = self.pde.branch(b, keys[2])
             z_dec = jnp.concatenate([b_dec,z], axis=-1)
             z_pde = jnp.concatenate([b_pde,z], axis=-1)
             return z_dec, z_pde
@@ -237,7 +251,8 @@ class RenONet(eqx.Module):
         loss_data = loss_data.at[:].set(loss_data * mask)
         
         if mode=='train':
-            loss_data = loss_data.at[self.batch_size:].multiply(1e-1)
+            #loss_data = loss_data.at[self.batch_size:].multiply( self.batch_size / (loss_data.shape[0] - self.batch_size)) # multiscale contributes equally to data loss
+            loss_data = loss_data.at[self.batch_size:].multiply(1.)
             loss_data = loss_data.mean()
             loss = self.w_data * loss_data + self.w_pde * loss_pde + self.w_gpde * loss_gpde + self.w_ms * loss_pool
             return loss        
