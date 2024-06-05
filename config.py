@@ -7,14 +7,14 @@ config_args = {
     'training_config': {
         'lr': (1e-5, 'learning rate'),
         'dropout': (0.1, 'dropout probability'),
-        'dropout_op': (2, 'dropout setting for operator networks, see below.'),
-        'epochs': (100000, 'number of epochs to train for'),
+        'dropout_op': (0, 'dropout setting for operator networks, see below.'),
+        'epochs': (40000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
         'b1': (.9, 'coefficient for first moment in adam'),
         'b2': (.999, 'coefficient for second moment in adam'),
-        'weight_decay': (1e-3, 'l2 regularization strength'),
+        'weight_decay': (2e-3, 'l2 regularization strength'),
         'epsilon': (1e-8, 'epsilon in adam denominator'),
         'beta': (.99, 'moving average coefficient for SLAW'),
         'log_freq': (100, 'how often to compute print train/val metrics (in epochs)'),
@@ -43,7 +43,7 @@ config_args = {
         # loss weights
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
-        'w_gpde': (1e+3, 'weight for gpde loss.'),
+        'w_gpde': (1e+9, 'weight for gpde loss.'),
         'w_ms': (1e-1, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'which weight config for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
@@ -78,7 +78,7 @@ config_args = {
         'pool': ('HGCN', 'which model to compute coarsening matrices'),
         
         # operator model params
-        'trunk_net': ('MLP', 'trunk network architecture.'),
+        'trunk_net': ('Res', 'trunk network architecture.'),
         'branch_net': ('Transformer', 'branch net architecture.'),
         'nonlinear': (1, 'nonlinear decoder architecture (NOMAD) or linear (DeepONet)'),
         'nonlinear_pde': (0, 'nonlinear pde architecture (NOMAD) or linear (DeepONet)'),
@@ -93,6 +93,7 @@ config_args = {
         'trunk_norm': (True, 'use layer norm in trunk net.'),
         'pos_emb_var': (1/4, 'variance of transformer positional embedding at l=0 and l>0, respectively'),
         'level_emb_var': (1., 'variance of transformer level embedding'),
+        'lin_skip': (1, 'use ortho or identity skip connections when consecutive layers are the same size'),
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
         'enc_width': (256, 'dimensions of encoder layers'),
@@ -100,7 +101,7 @@ config_args = {
         'pde_width': (-1, 'dimensions of each pde layers'),
         'pool_width': (-1, 'dimensions of each pde layers'),
         'enc_depth': (2, 'dimensions of encoder layers'),
-        'dec_depth': (4, 'dimensions of decoder layers'),
+        'dec_depth': (6, 'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
         'pool_depth': (3, 'dimensions of each pooling layer'),
         'enc_dims': ([-1]*3, 'dimensions of encoder layers'),
@@ -118,7 +119,6 @@ config_args = {
         'edge_conv': ('mlp', 'use edge convolution or not'),
         'agg': ('multi', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
-        'lin_skip': (True, 'use linear or identity skip connections when consecutive layers are the same size'),
         'use_att': (0, 'whether to use attention in next module to be inited.'),
         'use_layer_norm': (0, 'whether or not to use layernorm'),
         #'use_bias': (1, 'whether to use a bias in linear layers'),
@@ -133,26 +133,26 @@ config_args = {
 def configure(args):
     #print('nonlinear: ', args.nonlinear)
     
-    if args.dropout_op == 0:
-        args.dropout_branch = args.dropout
-        args.dropout_trunk = args.dropout
-        args.dropout = args.dropout
-    elif args.dropout_op == 1:
-        args.dropout_branch = args.dropout
-        args.dropout_trunk = 0. 
-        args.dropout = args.dropout
-    elif args.dropout_op == 2: 
+    if args.dropout_op == 0: 
         args.dropout_branch = args.dropout 
         args.dropout_trunk = 0.
         args.dropout = 0. 
+    elif args.dropout_op == 1:
+        args.dropout_branch = args.dropout
+        args.dropout_trunk = args.dropout
+        args.dropout = args.dropout
+    elif args.dropout_op == 2:
+        args.dropout_branch = args.dropout
+        args.dropout_trunk = 0. 
+        args.dropout = args.dropout
     elif args.dropout_op == 3:
         args.dropout_branch = args.dropout
         args.dropout_trunk = args.dropout/10 
-        args.dropout = args.dropout/2
+        args.dropout = args.dropout/10
 
     args.max_norm_enc = args.max_norm
 
-    args.pool_width = args.dec_width
+    if args.pool_width==-1: args.pool_width = args.dec_width
     args.pde_width = args.dec_width
     if args.p_basis == -1: args.p_basis = args.dec_width
 

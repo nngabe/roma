@@ -251,8 +251,9 @@ class ROMA(eqx.Module):
         loss_data = loss_data.at[:].set(loss_data * mask)
         
         if mode=='train':
-            #loss_data = loss_data.at[self.batch_size:].multiply( self.batch_size / (loss_data.shape[0] - self.batch_size)) # multiscale contributes equally to data loss
-            loss_data = loss_data.at[self.batch_size:].multiply(1.)
+            rescaling = jnp.sqrt( self.batch_size / (loss_data.shape[0] - self.batch_size))
+            loss_data = loss_data.at[self.batch_size:].multiply(rescaling)  # multiscale loss is sqrt scaled to mesoscale loss
+            #loss_data = loss_data.at[self.batch_size:].multiply(1.)
             loss_data = loss_data.mean()
             loss = self.w_data * loss_data + self.w_pde * loss_pde + self.w_gpde * loss_gpde + self.w_ms * loss_pool
             return loss        

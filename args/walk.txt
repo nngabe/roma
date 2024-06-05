@@ -1,6 +1,7 @@
---path 1716237798 --epochs 20000 --lr 2e-6  
---path 1716237798 --epochs 20000 --lr 2e-6 --max_norm .1   
---path 1716237798 --epochs 20000 --lr 2e-6  --dropout_op 3  
---path 1716237798 --epochs 20000 --lr 2e-6  --pos_emb_var .5
---path 1716237798 --epochs 20000 --lr 2e-6  --pos_emb_var 1. --level_emb_var .5
---path 1716237798 --epochs 200000 --dropout_op 3 --max_norm .1 --pos_emb_var .5
+--path 1716237798 --epochs 40000 --lr 2e-5 
+--path 1716237798 --epochs 40000 --lr 2e-5 --weight_decay 4e-3 
+--path 1716237798 --epochs 40000 --lr 2e-5 --pos_emb_var .125
+--path 1716237798 --epochs 40000 --lr 2e-5 --pos_emb_var .0625
+--path 1716237798 --epochs 40000 --lr 2e-5 --pos_emb_var .5
+--path 1716237798 --epochs 40000 --lr 2e-5 --pos_emb_var .75
+--path 1716237798 --epochs 40000 --lr 2e-5 --pos_emb_var 1.

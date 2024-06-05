@@ -31,7 +31,7 @@ from lib.positional_encoding import pe_path_from, pos_enc
 
 #jax.config.update("jax_enable_x64", True)
 prng = lambda i=0: jax.random.PRNGKey(i)
-
+dim2str = lambda d: '[' + str(d[0])+', ' +str(len(d)-2)+'*'+str(d[1:2])+', ' + str(d[-1]) + ']'
 
 if __name__ == '__main__': 
     stamp = str(int(time.time()))
@@ -138,8 +138,9 @@ if __name__ == '__main__':
         for i in model.pool.pools.keys(): 
             print(f'   embed_{i}: {args.pool}{args.embed_dims}')
         if args.decoder == 'Operator':
-            print(f'  decoder: {args.decoder}{model.decoder.branch_dims} -> {args.dec_dims[-1:]}')
-            print(f'  pde: {args.pde}/{args.decoder}{model.decoder.branch_dims} -> {args.pde_dims[-1:]}')
+            bdims = dim2str(model.decoder.branch_dims)
+            print(f'  decoder: {args.decoder}{bdims} -> {args.dec_dims[-1:]}')
+            print(f'  pde: {args.pde}/{args.decoder}{bdims} -> {args.pde_dims[-1:]}')
             print(f'    nonlinear[dec,pde]: {bool(args.nonlinear)},{bool(args.nonlinear_pde)}')
             print(f'    func_space: {args.func_space}(l={args.length_scale})')
             print(f'    branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
@@ -216,10 +217,10 @@ if __name__ == '__main__':
           optax.warmup_exponential_decay_schedule(
               init_value=lr*0.,
               peak_value=lr * 10**-(1.5 * i/num_cycles),
-              end_value=lr*1e-2,
+              end_value=lr*4e-2,
               warmup_steps=warmup_steps, 
               transition_steps=(cycle_length - warmup_steps)*3.5, 
-              decay_rate = 1e-7) for i in range(num_cycles)
+              decay_rate = 1e-5) for i in range(num_cycles)
         ] , boundaries=jnp.cumsum(jnp.array([cycle_length] * num_cycles)))
 
 

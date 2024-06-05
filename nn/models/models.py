@@ -18,19 +18,13 @@ from jaxtyping import Array, Float, PRNGKeyArray
 
 prng = lambda i=0: jr.PRNGKey(i)
 
-class null(eqx.Module):
-    def __init__(self, args):
-        super(null, self).__init__()
-    def __call__(self, x=None, adj=None):
-        return 0.
-
 class GraphNet(eqx.Module):
     c: float
     res: bool
     cat: bool
     norm: bool
     layers: eqx.nn.Sequential
-    lin: eqx.nn.Sequential
+    lin: eqx.nn.Sequential = eqx.field(static=True)
     layer_norm: eqx.nn.Sequential
     encode_graph: bool
     manifold: Optional[manifolds.base.Manifold] = None
@@ -66,7 +60,7 @@ class GraphNet(eqx.Module):
         for conv,lin,norm in zip(self.layers, self.lin, self.layer_norm):
             h,_ = conv(x, adj, key, w)
             h = self.log(h)
-            h = self.dropout(h, key=key)
+            #h = self.dropout(h, key=key)
             if self.res:
                 x = jax.vmap(lin)(self.log(x)) + h
             if self.norm:
@@ -186,11 +180,15 @@ class Transformer(eqx.Module):
             level_emb_scaler = self.level_emb_var[0] 
             res = res.at[l1:l2].add(self.level_embedding[i] * level_emb_scaler)
         return res
+    
 
-    def __call__(self, x, key, inspect=False):
+    def __call__(self, x, key, pe=None, inspect=False):
         if inspect: attn = []
         mask = self.get_attn_mask(x) 
-        x += self.multiscale_embedding(x)
+        if pe==None:
+            x += self.multiscale_embedding(x)
+        else: 
+            x += pe
         dropout_key, *attention_keys = jr.split(key, num=self.num_layers + 1)
         x = jax.vmap(self.lin1)(x)
         x = self.dropout(x, key=dropout_key)
@@ -207,49 +205,32 @@ class Transformer(eqx.Module):
         else: 
             return x
 
-class MLP(eqx.Module):
+class Res(eqx.Module):
     num_layers: int
-    layers: List[eqx.Module]
     res: bool
-    lin: List[eqx.Module] 
-    def __init__(self, in_dim, out_dim, args, key, res=True, norm=True):
-        keys = jr.split(key, args.dec_depth + 2 )
-        hidden_dim = args.dec_width * 2
-        self.num_layers = args.dec_depth
+    layers: eqx.nn.Sequential 
+    lin: eqx.nn.Sequential = eqx.field(static=True)
+
+    def __init__(self, in_dim, out_dim, args, res=True, norm=True, module=None):
+        if module:
+            args, dims, _, _ = get_dim_act(args,module) 
+            self.num_layers = args.num_layers
+        else: 
+            self.num_layers = args.num_layers
+            hidden_dim = args.dec_width * 2
+            dims = [in_dim] + self.num_layers * [hidden_dim] + [out_dim]
+        
+        keys = jr.split(prng(4), args.dec_depth + 2 )
         self.res = res
         dropout_rate = args.dropout_trunk
-        dims = [in_dim] + self.num_layers * [hidden_dim] + [out_dim]
-        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(self.num_layers+1)]
-        self.lin = [ eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers+1) ]
-
-    def __call__(self, x, key):
-
-        for res,layer in zip(self.lin,self.layers):
-            if self.res:
-                f = lambda x: layer(x,key) + res(x)
-            else:
-                f = lambda x: layer(x,key)
-            if len(x.shape)==1:
-                x = f(x)
-            if len(x.shape)==2:
-                x = jax.vmap(f)(x)
-            key = jr.split(key)[0]
-        return x
-
-class ResNet(eqx.Module):
-    layers: List[eqx.Module]
-    lin: List[eqx.Module] 
-    res: bool
-    
-    def __init__(self, args, module):
-        args, dims, _, _ = get_dim_act(args,module)
-        dropout_rate = args.dropout_trunk
-        norm = args.trunk_norm
         
-        keys = jr.split(prng(), args.num_layers + 2 )
-        self.res = args.trunk_res
-        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(args.num_layers - 1)] 
-        self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(args.num_layers - 1)]
+        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(self.num_layers +1)]        
+        if args.lin_skip: 
+            self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers +1)]
+        else: 
+            self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) if dims[i]!=dims[i+1] else (lambda x: x) for i in range(self.num_layers +1)]
+        self.layers = eqx.nn.Sequential(self.layers)
+        self.lin = eqx.nn.Sequential(self.lin)    
 
     def __call__(self, x, key):
 
@@ -264,8 +245,6 @@ class ResNet(eqx.Module):
                 x = jax.vmap(f)(x)
             key = jr.split(key)[0]
         return x
-
-
 
 class Operator(eqx.Module):
     
@@ -290,7 +269,7 @@ class Operator(eqx.Module):
         self.p_dim = args.p_basis
         self.nonlinear = args.nonlinear
 
-        keys = jr.split(prng(), 5)
+        keys = jr.split(prng(6), 5)
         
         # set dimensions of branch net        
         self.branch_dims = copy.copy(dims)
@@ -301,19 +280,18 @@ class Operator(eqx.Module):
         # set dimensions of trunk net
         self.trunk_dims = copy.copy(dims)
         self.trunk_dims[0] = dims[0] - self.u_dim
+        
         if module=='pde' and args.nonlinear_pde:
             self.trunk_dims[0] += self.p_dim * args.x_dim 
-            self.trunk_dims[-1] = self.trunk_dims[-1]
         elif module=='pde' and not args.nonlinear_pde:
             self.trunk_dims[-1] = self.p_dim
-        elif args.nonlinear:
+        elif args.nonlinear: 
             self.trunk_dims[0] += self.p_dim * args.x_dim 
-            self.trunk_dims[-1] = self.trunk_dims[-1]
         else:
             self.trunk_dims[-1] = self.p_dim
         
         self.branch = eval(args.branch_net)(self.branch_dims[0], self.branch_dims[-1], args, keys[0]) if not shared else None
-        self.trunk = eval(args.trunk_net)(self.trunk_dims[0], self.trunk_dims[-1], args, keys[1], res=args.trunk_res, norm=args.trunk_norm)
+        self.trunk = eval(args.trunk_net)(self.trunk_dims[0], self.trunk_dims[-1], args, res=args.trunk_res, norm=args.trunk_norm)
 
 
 class HGCN(GraphNet):
@@ -328,16 +306,17 @@ class HGCN(GraphNet):
         hgc_layers = []
         lin_layers = []
         layer_norms = []
-        key = prng()
+        key = prng(7)
         for i in range(len(dims) - 1):
             c_in, c_out = self.curvatures[i], self.curvatures[i + 1]
             in_dim, out_dim = dims[i], dims[i + 1]
             hgc_layers.append( 
                 hyp_layers.HGCNLayer(in_dim, out_dim, key, args, manifold=self.manifold) 
                 )
-            lin_layers.append(eqx.nn.Linear(in_dim, out_dim, key=key))
-            #if args.lin_skip: lin_layers.append(eqx.nn.Linear(in_dim, out_dim, key=key))
-            #else: lin_layers.append(eqx.nn.Linear(in_dim, out_dim, key=key) if in_dim != out_dim else (lambda x: x) )
+            if args.lin_skip: 
+                lin_layers.append(eqx.nn.Linear(in_dim, out_dim, key=key))
+            else: 
+                lin_layers.append(eqx.nn.Linear(in_dim, out_dim, key=key) if in_dim != out_dim else (lambda x: x) )
             layer_norms.append(eqx.nn.LayerNorm(out_dim))
             key = jax.random.split(key)[0]
         self.layers = nn.Sequential(hgc_layers)
