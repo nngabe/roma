@@ -112,11 +112,11 @@ class HypAgg(eqx.Module):
             # aggregation function. use mean if weighted else use self.agg
             if isinstance(w,jnp.ndarray): 
                 x_s = jnp.einsum('ij,i -> ij', x_s, w)
-                if self.agg=='sum': 
-                    x_agg = jraph.segment_sum(x_s, r, n)
-                else: 
-                    x_agg = jraph.segment_sum(x_s, r, n)
-            elif self.agg == 'multi':
+            #    if self.agg=='sum': 
+            #        x_agg = jraph.segment_sum(x_s, r, n)
+            #    else: 
+            #        x_agg = jraph.segment_sum(x_s, r, n)
+            if self.agg == 'multi':
                 temp = jnp.array([1.])
                 x_softmax = [segment_softmax(t)(x_s, r, n) for t in temp]
                 x_sum = jraph.segment_sum(x_s, r, n)

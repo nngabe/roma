@@ -41,6 +41,7 @@ class ROMA(eqx.Module):
     nonlinear: bool
     eps: jnp.float32
     w_l: jnp.float32 = eqx.field(static=True)
+    func_pos_emb: bool
 
     def __init__(self, args):
         super(ROMA, self).__init__()
@@ -71,6 +72,7 @@ class ROMA(eqx.Module):
         self.nonlinear = args.nonlinear
         self.eps = 1e-15
         self.w_l = 1.
+        self.func_pos_emb = args.func_pos_emb
 
     def coord_encode(self, tx):
         if len(tx.shape)>1:
@@ -103,11 +105,10 @@ class ROMA(eqx.Module):
     def encode(self, x, adj, key):
         s,pe = x[:,:self.kappa], x[:,self.kappa:]
         pe = jax.vmap(self.embed_pe)(pe)
-        se = jax.vmap(self.embed_s)(s)
+        #se = jax.vmap(self.embed_s)(s)
         #pe += se
         x = jnp.concatenate([s,pe], axis=-1)
         x = self.encoder(x, adj, key)
-        #x = jnp.concatenate([s, x], axis=-1)
         return x
 
     def embed_pool(self, z, adj, w, i, key):
@@ -120,7 +121,6 @@ class ROMA(eqx.Module):
         return z,S
 
     def renorm(self, x, adj, y, key, mode='train'):
-        #x = x[:,self.kappa:]
         w = None
         loss_ent = 0.
         S = {}
@@ -133,9 +133,10 @@ class ROMA(eqx.Module):
             z,s = self.embed_pool(x, adj, w, i, key)
             s = self.log(s)
             s = jax.vmap(self.ln_pool[i])(s)
-            #s = jax.nn.softmax(s, axis=0)
-            s = s/jnp.linalg.norm(s, axis=0, keepdims=True)
-            S[i] = s**2
+            #S[i] = jax.nn.softmax(s, axis=0)
+            #sr = jnp.sqrt(S[i])
+            sr = s/jnp.linalg.norm(s, axis=0, keepdims=True)
+            S[i] = sr**2
             m,n = S[i].shape
             x = jnp.einsum('ij,ik -> jk', S[i], z) * (n/m)
             y = jnp.einsum('ij,ki -> kj', S[i], y) * (n/m)
@@ -145,7 +146,7 @@ class ROMA(eqx.Module):
             y_r = jnp.concatenate([y_r, y], axis=-1)
             loss_pool = loss_pool.at[0].add( self.w_pool[0] * jax.scipy.special.entr(S[i]).mean())
             loss_pool = loss_pool.at[1].add( self.w_pool[1] * jax.scipy.special.entr(A[i+1]).mean())
-            loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', s, s)).mean())
+            loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', sr, sr)).mean())
             key = jr.split(key)[0]
 
         if mode == 'train':
@@ -192,12 +193,13 @@ class ROMA(eqx.Module):
         return res, gpde
 
     def branch(self, z, key):
-        keys = jr.split(key, 3)
+        keys = jr.split(key, 5)
         if hasattr(self.decoder, 'branch'):
             b,z = z[:,:self.kappa],z[:,self.kappa:]
             b = self.decoder.func_space(b, keys[0])
-            b_dec = self.decoder.branch(b, keys[1])
-            b_pde = self.decoder.branch(b, keys[2])
+            pe = jax.vmap(self.decoder.func_pe)(z) if self.func_pos_emb else None
+            b_dec = self.decoder.branch(b, keys[2], pe=pe)
+            b_pde = self.decoder.branch(b, keys[3], pe=pe)
             #b_pde = self.pde.branch(b, keys[2])
             z_dec = jnp.concatenate([b_dec,z], axis=-1)
             z_pde = jnp.concatenate([b_pde,z], axis=-1)
@@ -253,7 +255,6 @@ class ROMA(eqx.Module):
         if mode=='train':
             rescaling = jnp.sqrt( self.batch_size / (loss_data.shape[0] - self.batch_size))
             loss_data = loss_data.at[self.batch_size:].multiply(rescaling)  # multiscale loss is sqrt scaled to mesoscale loss
-            #loss_data = loss_data.at[self.batch_size:].multiply(1.)
             loss_data = loss_data.mean()
             loss = self.w_data * loss_data + self.w_pde * loss_pde + self.w_gpde * loss_gpde + self.w_ms * loss_pool
             return loss        

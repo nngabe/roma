@@ -138,6 +138,7 @@ class Transformer(eqx.Module):
     eps: float
     pos_emb_var: list[float]
     level_emb_var: list[float]
+    dual_embed: bool
 
     def __init__(self, in_dim, out_dim, args, key):
         
@@ -162,6 +163,7 @@ class Transformer(eqx.Module):
         self.eps = 1e-15
         self.pos_emb_var = args.pos_emb_var
         self.level_emb_var = args.level_emb_var
+        self.dual_embed = args.dual_pos_emb
 
     def get_attn_mask(self, x):
         # filter out padding nodes that have x = [0., ..., 0.] 
@@ -187,7 +189,9 @@ class Transformer(eqx.Module):
         mask = self.get_attn_mask(x) 
         if pe==None:
             x += self.multiscale_embedding(x)
-        else: 
+        elif self.dual_embed: 
+            x += pe + self.multiscale_embedding(x)
+        else:
             x += pe
         dropout_key, *attention_keys = jr.split(key, num=self.num_layers + 1)
         x = jax.vmap(self.lin1)(x)
@@ -250,6 +254,7 @@ class Operator(eqx.Module):
     
     trunk: eqx.Module
     branch: eqx.Module
+    func_pe: eqx.Module
     func_space: eqx.Module
     x_dim: int
     tx_dim: int
@@ -292,7 +297,7 @@ class Operator(eqx.Module):
         
         self.branch = eval(args.branch_net)(self.branch_dims[0], self.branch_dims[-1], args, keys[0]) if not shared else None
         self.trunk = eval(args.trunk_net)(self.trunk_dims[0], self.trunk_dims[-1], args, res=args.trunk_res, norm=args.trunk_norm)
-
+        self.func_pe = eqx.nn.MLP(args.embed_dims[0], self.branch_dims[0], width_size=4*args.embed_dims[0], depth=2, activation=jax.nn.gelu, key=prng(7))
 
 class HGCN(GraphNet):
     

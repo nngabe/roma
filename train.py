@@ -144,6 +144,7 @@ if __name__ == '__main__':
             print(f'    nonlinear[dec,pde]: {bool(args.nonlinear)},{bool(args.nonlinear_pde)}')
             print(f'    func_space: {args.func_space}(l={args.length_scale})')
             print(f'    branch/trunk nets: {model.decoder.branch.__class__.__name__}/{model.decoder.trunk.__class__.__name__}')
+            print(f'    dual pe: {model.decoder.func_pe.__class__.__name__}') 
             print(f'    pos_emb_var = {args.pos_emb_var}, level_emb_var = {args.level_emb_var}')
             print(f'    time_enc: fourier[{args.coord_dim}][t_var={args.t_var},x_var={args.x_var}]\n')
         else:        
@@ -217,7 +218,7 @@ if __name__ == '__main__':
           optax.warmup_exponential_decay_schedule(
               init_value=lr*0.,
               peak_value=lr * 10**-(1.5 * i/num_cycles),
-              end_value=lr*4e-2,
+              end_value=lr*1e-1,
               warmup_steps=warmup_steps, 
               transition_steps=(cycle_length - warmup_steps)*3.5, 
               decay_rate = 1e-5) for i in range(num_cycles)

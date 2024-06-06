@@ -14,7 +14,7 @@ config_args = {
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
         'b1': (.9, 'coefficient for first moment in adam'),
         'b2': (.999, 'coefficient for second moment in adam'),
-        'weight_decay': (2e-3, 'l2 regularization strength'),
+        'weight_decay': (5e-3, 'l2 regularization strength'),
         'epsilon': (1e-8, 'epsilon in adam denominator'),
         'beta': (.99, 'moving average coefficient for SLAW'),
         'log_freq': (100, 'how often to compute print train/val metrics (in epochs)'),
@@ -31,9 +31,9 @@ config_args = {
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'torch_seed': (1, 'seed for torch loader'),
         'batch_red': (2, 'factor of reduction for batch size'),
-        'pool_red': (4, 'factor of reduction for each pooling step'),
+        'pool_red': (2, 'factor of reduction for each pooling step'),
         'pool_steps': (1, 'number of pooling steps'),
-        'eta_var': (1e-4, 'variance of multiplicative noise'),
+        'eta_var': (1e-5, 'variance of multiplicative noise'),
     },
     'model_config': {
 
@@ -93,11 +93,13 @@ config_args = {
         'trunk_norm': (True, 'use layer norm in trunk net.'),
         'pos_emb_var': (1/4, 'variance of transformer positional embedding at l=0 and l>0, respectively'),
         'level_emb_var': (1., 'variance of transformer level embedding'),
+        'func_pos_emb': (1, 'use functional positional embedding in Transformer'),
+        'dual_pos_emb': (1, 'use dual positional embedding'),
         'lin_skip': (1, 'use ortho or identity skip connections when consecutive layers are the same size'),
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
         'enc_width': (256, 'dimensions of encoder layers'),
-        'dec_width': (448, 'dimensions of decoder layers'),
+        'dec_width': (512, 'dimensions of decoder layers'),
         'pde_width': (-1, 'dimensions of each pde layers'),
         'pool_width': (-1, 'dimensions of each pde layers'),
         'enc_depth': (2, 'dimensions of encoder layers'),
@@ -147,8 +149,8 @@ def configure(args):
         args.dropout = args.dropout
     elif args.dropout_op == 3:
         args.dropout_branch = args.dropout
-        args.dropout_trunk = args.dropout/10 
-        args.dropout = args.dropout/10
+        args.dropout_trunk = args.dropout/5
+        args.dropout = args.dropout/2
 
     args.max_norm_enc = args.max_norm
 
@@ -157,8 +159,17 @@ def configure(args):
     if args.p_basis == -1: args.p_basis = args.dec_width
 
     # multiscale embedding weights
-    args.pos_emb_var = [args.pos_emb_var, 1.]
-    args.level_emb_var = [args.level_emb_var]
+    if args.dual_pos_emb == 1:
+        args.pos_emb_var = [args.pos_emb_var, 1.]
+        args.level_emb_var = [args.level_emb_var]
+    elif args.dual_pos_emb == 2:
+        a = 1/2
+        args.pos_emb_var = [a * args.pos_emb_var, a * 1.]
+        args.level_emb_var = [a * args.level_emb_var]
+    elif args.dual_pos_emb == 3:
+        a = 1/2
+        args.pos_emb_var = [a**2. * args.pos_emb_var, a**2. * 1.]
+        args.level_emb_var = [a * args.level_emb_var]
 
     # multiscale loss weights
     if args.w_pool == 0:
@@ -176,7 +187,7 @@ def configure(args):
         
     # size of renorm/pooling graphs
     args.manifold_pool = args.manifold
-    args.pool_size = [32//args.pool_red**i for i in range(0,args.pool_steps)] if args.pool_steps > 0 else [0]
+    args.pool_size = [64//args.pool_red**i for i in range(0,args.pool_steps)] if args.pool_steps > 0 else [0]
     args.num_nodes = args.batch_size + sum(args.pool_size)
     
     # pe dims
