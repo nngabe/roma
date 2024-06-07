@@ -5,10 +5,10 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (1e-5, 'learning rate'),
-        'dropout': (0.1, 'dropout probability'),
+        'lr': (2e-5, 'learning rate'),
+        'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
-        'epochs': (40000, 'number of epochs to train for'),
+        'epochs': (20000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -26,14 +26,14 @@ config_args = {
         'num_col': (1, 'number of colocation points in the time domain'),
         'batch_size': (256, 'number of nodes in test and batch graphs'),
         'sampler_batch_size': (-1, 'number of nodes to seed GraphSAINT random walks'),
-        'batch_walk_len': (12, 'length of GraphSAINT sampler random walks.'),
+        'batch_walk_len': (16, 'length of GraphSAINT sampler random walks.'),
         'min_subgraph_size': (50, 'minimum subgraph size for training graph sampler.'),
         'lcc_train_set': (True, 'use LCC of graph after removing test set'),
         'torch_seed': (1, 'seed for torch loader'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (2, 'factor of reduction for each pooling step'),
         'pool_steps': (1, 'number of pooling steps'),
-        'eta_var': (1e-5, 'variance of multiplicative noise'),
+        'eta_var': (1e-4, 'variance of multiplicative noise'),
     },
     'model_config': {
 
@@ -141,11 +141,11 @@ def configure(args):
         args.dropout = 0. 
     elif args.dropout_op == 1:
         args.dropout_branch = args.dropout
-        args.dropout_trunk = args.dropout
+        args.dropout_trunk = 0. 
         args.dropout = args.dropout
     elif args.dropout_op == 2:
         args.dropout_branch = args.dropout
-        args.dropout_trunk = 0. 
+        args.dropout_trunk = args.dropout
         args.dropout = args.dropout
     elif args.dropout_op == 3:
         args.dropout_branch = args.dropout
@@ -159,16 +159,16 @@ def configure(args):
     if args.p_basis == -1: args.p_basis = args.dec_width
 
     # multiscale embedding weights
-    if args.dual_pos_emb == 1:
+    if args.dual_pos_emb == 0:
         args.pos_emb_var = [args.pos_emb_var, 1.]
         args.level_emb_var = [args.level_emb_var]
-    elif args.dual_pos_emb == 2:
+    elif args.dual_pos_emb == 1:
         a = 1/2
         args.pos_emb_var = [a * args.pos_emb_var, a * 1.]
         args.level_emb_var = [a * args.level_emb_var]
-    elif args.dual_pos_emb == 3:
-        a = 1/2
-        args.pos_emb_var = [a**2. * args.pos_emb_var, a**2. * 1.]
+    elif args.dual_pos_emb == 2:
+        a = 3/4
+        args.pos_emb_var = [a * args.pos_emb_var, a * 1.]
         args.level_emb_var = [a * args.level_emb_var]
 
     # multiscale loss weights

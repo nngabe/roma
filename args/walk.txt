@@ -1,4 +1,5 @@
---path 1716237798 --epochs 20000 --lr 2e-5 
---path 1716237798 --epochs 20000 --lr 2e-5 --batch_walk_len 20
---path 1716237798 --epochs 20000 --lr 2e-5 --batch_walk_len 24
---path 1716237798 --epochs 20000 --lr 2e-5 --dropout_op 3
+--path 1716237798 --weight_decay 1e-2
+--path 1716237798 --weight_decay 5e-3
+--path 1716237798 --dual_pos_emb 1
+--path 1716237798 --dropout_op 0 --dropout .02
+--path 1716237798 --dropout_op 1 --dropout .02

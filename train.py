@@ -212,18 +212,13 @@ if __name__ == '__main__':
     num_cycles = args.num_cycles
     cycle_length = args.epochs//num_cycles
     warmup_steps = 1/2 * cycle_length
-
+    warmup_steps = min(10000, warmup_steps)
+    
     schedule = optax.join_schedules(schedules=
-        [
-          optax.warmup_exponential_decay_schedule(
-              init_value=lr*0.,
-              peak_value=lr * 10**-(1.5 * i/num_cycles),
-              end_value=lr*1e-1,
-              warmup_steps=warmup_steps, 
-              transition_steps=(cycle_length - warmup_steps)*3.5, 
-              decay_rate = 1e-5) for i in range(num_cycles)
-        ] , boundaries=jnp.cumsum(jnp.array([cycle_length] * num_cycles)))
-
+    [
+      optax.linear_schedule(0., lr, warmup_steps),
+      optax.linear_schedule(lr, lr * 5e-2, args.epochs - warmup_steps)
+    ] , boundaries=[warmup_steps])
 
     params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2, 'eps': args.epsilon}
     optimizer = getattr(optax, args.optim)(**params)
@@ -241,6 +236,7 @@ if __name__ == '__main__':
         if i % args.batch_freq == 0: 
             batch, loader = get_next_batch(loader, args, data_train)
        
+        # if args.overfit_test: x_b, adj_b, pe_b = x_test, adj_test, pe_test
         x_b, adj_b, pe_b = pad_graph(x=x[batch.idx.numpy()], adj=batch.edge_index.numpy(), pe=pe[batch.idx.numpy()], x_size=args.batch_size)
 
         model, opt_state, key = update(key, model, x_b, pe_b, adj_b, state, opt_state)
