@@ -1,5 +1,7 @@
---path 1716237798 --weight_decay 1e-2
---path 1716237798 --weight_decay 5e-3
---path 1716237798 --dual_pos_emb 1
---path 1716237798 --dropout_op 0 --dropout .02
+--path 1716237798 --eps 1e-4 --lr 2e-5
+--path 1716237798 --eps 1e-6 --lr 2e-5
+--path 1716237798 --func_pos_emb 0
+--path 1716237798 --dual_pos_emb 2
+--path 1716237798 --dual_pos_emb 3
 --path 1716237798 --dropout_op 1 --dropout .02
+--path 1716237798 --dropout_op 1 --dropout .04

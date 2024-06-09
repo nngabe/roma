@@ -5,7 +5,7 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (2e-5, 'learning rate'),
+        'lr': (1e-5, 'learning rate'),
         'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
         'epochs': (20000, 'number of epochs to train for'),
@@ -15,7 +15,7 @@ config_args = {
         'b1': (.9, 'coefficient for first moment in adam'),
         'b2': (.999, 'coefficient for second moment in adam'),
         'weight_decay': (5e-3, 'l2 regularization strength'),
-        'epsilon': (1e-8, 'epsilon in adam denominator'),
+        'epsilon': (1e-6, 'epsilon in adam denominator'),
         'beta': (.99, 'moving average coefficient for SLAW'),
         'log_freq': (100, 'how often to compute print train/val metrics (in epochs)'),
         'batch_freq': (2, 'how often to resample training graph'),
@@ -24,7 +24,7 @@ config_args = {
         'verbose': (True, 'print training data to console'),
         'opt_study': (False, 'whether to run a hyperparameter optimization study or not'),
         'num_col': (1, 'number of colocation points in the time domain'),
-        'batch_size': (256, 'number of nodes in test and batch graphs'),
+        'batch_size': (512, 'number of nodes in test and batch graphs'),
         'sampler_batch_size': (-1, 'number of nodes to seed GraphSAINT random walks'),
         'batch_walk_len': (16, 'length of GraphSAINT sampler random walks.'),
         'min_subgraph_size': (50, 'minimum subgraph size for training graph sampler.'),
@@ -32,6 +32,7 @@ config_args = {
         'torch_seed': (1, 'seed for torch loader'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (2, 'factor of reduction for each pooling step'),
+        'pool_init_size': (64, 'size of initial coarse grained layer'),
         'pool_steps': (1, 'number of pooling steps'),
         'eta_var': (1e-4, 'variance of multiplicative noise'),
     },
@@ -83,12 +84,12 @@ config_args = {
         'nonlinear': (1, 'nonlinear decoder architecture (NOMAD) or linear (DeepONet)'),
         'nonlinear_pde': (0, 'nonlinear pde architecture (NOMAD) or linear (DeepONet)'),
         'shared_branch': (True, 'use the same branch net for forecast and pde operator'),
-        'p_basis': (-1, 'size of DeepOnet basis'),
-        'func_space': ('GRF', 'function space for DeepOnet.'),
+        'p_basis': (-1, 'size of DeepONet basis'),
+        'func_space': ('GRF', 'function space for DeepONet.'),
         'length_scale': (1., 'length scale for GRF'),
         'num_func': (128, 'number of functions to sample from func_space'),
         'num_spl': (100, 'number of spline points for GRF'),
-        'num_heads': (4, 'number of heads in transformer blocks.'),
+        'num_heads': (8, 'number of heads in transformer blocks.'),
         'trunk_res': (True, 'use residual connections in trunk net.'),
         'trunk_norm': (True, 'use layer norm in trunk net.'),
         'pos_emb_var': (1/4, 'variance of transformer positional embedding at l=0 and l>0, respectively'),
@@ -155,21 +156,20 @@ def configure(args):
     args.max_norm_enc = args.max_norm
 
     if args.pool_width==-1: args.pool_width = args.dec_width
-    args.pde_width = args.dec_width
     if args.p_basis == -1: args.p_basis = args.dec_width
+    args.pde_width = args.dec_width
 
     # multiscale embedding weights
-    if args.dual_pos_emb == 0:
+    if args.dual_pos_emb == 1:
         args.pos_emb_var = [args.pos_emb_var, 1.]
         args.level_emb_var = [args.level_emb_var]
-    elif args.dual_pos_emb == 1:
+    elif args.dual_pos_emb == 2:
         a = 1/2
         args.pos_emb_var = [a * args.pos_emb_var, a * 1.]
         args.level_emb_var = [a * args.level_emb_var]
-    elif args.dual_pos_emb == 2:
-        a = 3/4
-        args.pos_emb_var = [a * args.pos_emb_var, a * 1.]
-        args.level_emb_var = [a * args.level_emb_var]
+    elif args.dual_pos_emb == 3:
+        args.pos_emb_var = [0., .5] 
+        args.level_emb_var = [args.level_emb_var]
 
     # multiscale loss weights
     if args.w_pool == 0:
