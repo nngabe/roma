@@ -209,15 +209,15 @@ if __name__ == '__main__':
     if args.epochs == 0: sys.exit(0)
 
     lr = args.lr
+    epochs = args.epochs
     num_cycles = args.num_cycles
     cycle_length = args.epochs//num_cycles
-    warmup_steps = 1/2 * cycle_length
-    warmup_steps = min(10000, warmup_steps)
+    warmup_steps = 10000 #min(10000, warmup_steps)
     
     schedule = optax.join_schedules(schedules=
     [
       optax.linear_schedule(0., lr, warmup_steps),
-      optax.linear_schedule(lr, lr * 5e-2, args.epochs - warmup_steps)
+      optax.linear_schedule(lr, lr * 5e-2, epochs - warmup_steps)
     ] , boundaries=[warmup_steps])
 
     params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2, 'eps': args.epsilon}
