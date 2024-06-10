@@ -30,10 +30,11 @@ elif batch == 'test':
     OPTS.append(opts)
 
 elif batch.isnumeric():
-    OUT_FILE = f'args/ablations_{batch}.txt'
     opt_ = {'path': [batch], 'eta_var': [1e-4]}
+    name = '_'.join([i[0]+str(i[1]) for i in opt_.items()])
+    OUT_FILE = f'args/ablations_{name}.txt'
    
-    # default THALES 
+    # default ROMA
     opts = opt_ 
     OPTS.append(opts)
    
@@ -46,8 +47,8 @@ elif batch.isnumeric():
     OPTS.append(opts)
    
     # Euclidean manifold 
-    opts = opt_ | {'manifold': ['Euclidean']}
-    OPTS.append(opts)
+    #opts = opt_ | {'manifold': ['Euclidean']}
+    #OPTS.append(opts)
     
     # no PDE/gPDE
     opts = opt_ | {'w_pde':[0.], 'w_gpde': [0.]}
