@@ -18,20 +18,20 @@ if batch == '':
 
 elif batch == 'test':
     OUT_FILE = 'args/test.txt'
-    opts = {'path': [1715101498], 'epochs': [200000]} # 31k 
+    opts = {'path': [1716416941], 'epochs': [200000]} # 38k 
     OPTS.append(opts)
     opts = {'path': [1715101625], 'epochs': [200000]} # 1M 
     OPTS.append(opts)
-    opts = {'path': [1715101498], 'eta_var': [0.09]} # 31k, 30% noise 
+    opts = {'path': [11716416941], 'eta_var': [0.01]} # 38k, 10% noise 
     OPTS.append(opts)
-    opts = {'path': [1715285662]} # 31k, non-stationary 
+    opts = {'path': [1718042027]} # 38k, non-stationary 
     OPTS.append(opts)
-    opts = {'path': [1715276628]} # Burgers 
+    opts = {'path': [1715275273]} # 29k, Burgers 
     OPTS.append(opts)
 
 elif batch.isnumeric():
     OUT_FILE = f'args/ablations_{batch}.txt'
-    opt_ = {'path': [batch], 'epochs': [10000]}
+    opt_ = {'path': [batch], 'eta_var': [1e-4]}
    
     # default THALES 
     opts = opt_ 

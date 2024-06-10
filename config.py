@@ -89,7 +89,7 @@ config_args = {
         'length_scale': (1., 'length scale for GRF'),
         'num_func': (128, 'number of functions to sample from func_space'),
         'num_spl': (100, 'number of spline points for GRF'),
-        'num_heads': (6, 'number of heads in transformer blocks.'),
+        'num_heads': (8, 'number of heads in transformer blocks.'),
         'trunk_res': (True, 'use residual connections in trunk net.'),
         'trunk_norm': (True, 'use layer norm in trunk net.'),
         'pos_emb_var': (1/4, 'variance of transformer positional embedding at l=0 and l>0, respectively'),

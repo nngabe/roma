@@ -26,7 +26,7 @@ class VBLLReturn():
 
 class VBLL(eqx.Module):
     """
-    Variational Bayesian Linear Regression
+    Variational Bayesian Last Layer
 
     Parameters
     ----------
