@@ -5,17 +5,17 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (1e-5, 'learning rate'),
+        'lr': (4e-6, 'learning rate'),
         'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
-        'epochs': (100000, 'number of epochs to train for'),
+        'epochs': (40000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
         'b1': (.9, 'coefficient for first moment in adam'),
         'b2': (.999, 'coefficient for second moment in adam'),
         'weight_decay': (5e-3, 'l2 regularization strength'),
-        'epsilon': (1e-6, 'epsilon in adam denominator'),
+        'epsilon': (1e-7, 'epsilon in adam denominator'),
         'beta': (.99, 'moving average coefficient for SLAW'),
         'log_freq': (100, 'how often to compute print train/val metrics (in epochs)'),
         'batch_freq': (2, 'how often to resample training graph'),
@@ -34,7 +34,7 @@ config_args = {
         'pool_red': (2, 'factor of reduction for each pooling step'),
         'pool_init_size': (64, 'size of initial coarse grained layer'),
         'pool_steps': (1, 'number of pooling steps'),
-        'eta_var': (1e-4, 'variance of multiplicative noise'),
+        'eta_var': (4e-4, 'variance of multiplicative noise'),
     },
     'model_config': {
 
@@ -43,9 +43,9 @@ config_args = {
         
         # loss weights
         'w_data': (1e+0, 'weight for data loss.'),
-        'w_pde': (1e+0, 'weight for pde loss.'),
-        'w_gpde': (1e+9, 'weight for gpde loss.'),
-        'w_ms': (1e-1, 'weight for assignment matrix entropy loss.'),
+        'w_pde': (1e+1, 'weight for pde loss.'),
+        'w_gpde': (1e+10, 'weight for gpde loss.'),
+        'w_ms': (1e-2, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'which weight config for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
@@ -55,12 +55,12 @@ config_args = {
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
         'coord_dim': (1024, 'dimension of (t,x) embedding'), 
-        't_var': (1e-7, 'variance of time embedding in trunk net'),
-        'x_var': (1e-7, 'variance of space embedding in trunk net'),
+        't_var': (1e-5, 'variance of time embedding in trunk net'),
+        'x_var': (1e-5, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
         'pe_dim': (256, 'dimension of each positional encoding (node2vec,LE,...)'),
-        'pe_embed_dim': (128, 'dimension of pe linear embedding'),
+        'pe_embed_dim': (256, 'dimension of pe linear embedding'),
         'le_size': (-1, 'size of laplacian eigenvector positional encoding'),
         'rw_size': (-1, 'size of random walk (diffusion) positional encoding'),
         'n2v_size': (-1, 'size of node2vec positional encoding'),
@@ -89,7 +89,7 @@ config_args = {
         'length_scale': (1., 'length scale for GRF'),
         'num_func': (128, 'number of functions to sample from func_space'),
         'num_spl': (100, 'number of spline points for GRF'),
-        'num_heads': (12, 'number of heads in transformer blocks.'),
+        'num_heads': (8, 'number of heads in transformer blocks.'),
         'trunk_res': (True, 'use residual connections in trunk net.'),
         'trunk_norm': (True, 'use layer norm in trunk net.'),
         'pos_emb_var': (1/4, 'variance of transformer positional embedding at l=0 and l>0, respectively'),
@@ -175,9 +175,9 @@ def configure(args):
     if args.w_pool == 0:
         args.w_pool = [1., 1e-20, 1.] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
-        args.w_pool = [0., 1e-1, 1.]
+        args.w_pool = [1e-1, 1e-20, 1.]
     elif args.w_pool == 2:
-        args.w_pool = [1., 0., 1.]
+        args.w_pool = [1., 1e-3, 1.]
     elif args.w_pool == 3:
         args.w_pool = [1., 1e-1, 0.]
 
@@ -187,7 +187,7 @@ def configure(args):
         
     # size of renorm/pooling graphs
     args.manifold_pool = args.manifold
-    args.pool_size = [64//args.pool_red**i for i in range(0,args.pool_steps)] if args.pool_steps > 0 else [0]
+    args.pool_size = [args.pool_init_size//args.pool_red**i for i in range(0,args.pool_steps)] if args.pool_steps > 0 else [0]
     args.num_nodes = args.batch_size + sum(args.pool_size)
     
     # pe dims
@@ -211,10 +211,11 @@ def configure(args):
 
     if args.res: 
         enc_out = sum(args.enc_dims) 
-        args.dec_dims[0] = enc_out + (1 + args.x_dim) * args.coord_dim
     else: 
         enc_out = args.enc_dims[-1] 
-        args.dec_dims[0] = enc_out + (1 + args.x_dim) * args.coord_dim
+    
+    #args.dec_dims[0] = enc_out + (1 + args.x_dim) * args.coord_dim
+    args.dec_dims[0] = enc_out + (1) * args.coord_dim
     
     if args.pde=='emergent':
         args.pde_dims[0] = args.dec_dims[0] + 5 * args.x_dim

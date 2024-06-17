@@ -37,8 +37,16 @@ elif batch.isnumeric():
     # default ROMA
     opts = opt_ 
     OPTS.append(opts)
+    
+    # DeepONet 
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0]}
+    OPTS.append(opts)
+    
+    # NOMAD
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [1]}
+    OPTS.append(opts)
    
-    # PINN decoder
+    # MLP decoder
     opts = opt_ | {'decoder': ['ResNet'], 'dec_width': [960]}
     OPTS.append(opts)
    
@@ -46,17 +54,12 @@ elif batch.isnumeric():
     opts = opt_ | {'pool_steps': [0]}
     OPTS.append(opts)
    
-    # Euclidean manifold 
-    #opts = opt_ | {'manifold': ['Euclidean']}
-    #OPTS.append(opts)
-    
     # no PDE/gPDE
     opts = opt_ | {'w_pde':[0.], 'w_gpde': [0.]}
     OPTS.append(opts)
+
     
-    # no graph positional encoding
-    opts = opt_ | {'pe_dim': [0]}
-    OPTS.append(opts)
+    
 
 elif batch == 'ablations_extra':
     OUT_FILE = 'args/ablations.txt'
@@ -70,12 +73,24 @@ elif batch == 'ablations_extra':
     OPTS.append(opts)
     opts = {'w_pool': [1,2,3]}
     OPTS.append(opts)
+    opts = opt_ | {'pe_dim': [0]}
+    OPTS.append(opts)
 
 elif batch == 'walk':
     OUT_FILE = 'args/walk.txt'
     opt_ = {'path': [1716237798], 'epochs': [25000], 'lr': [1e-6]}
 
     opts = opt_ | {'max_walk_len': [12,16,24]}
+    OPTS.append(opts)
+
+elif batch == 'ffe':
+    OUT_FILE = 'args/ffe.txt'
+    opt_ = {}
+    opts = opt_ | {'t_var': [1e-5], 'x_var': [1e-5]} 
+    OPTS.append(opts)
+    opts = opt_ | {'t_var': [1e-6], 'x_var': [1e-6]} 
+    OPTS.append(opts)
+    opts = opt_ | {'t_var': [1e-4], 'x_var': [1e-3]} 
     OPTS.append(opts)
 
 elif batch == 'optim':
@@ -89,10 +104,6 @@ elif batch == 'optim':
     opts = {'optim': ['adamw'], 'weight_decay': [1e-3], 'b1': [.9], 'epochs': [10000], 'log_path': [1709754619]}
     OPTS.append(opts)
 
-elif batch == 'ffe':
-    OUT_FILE = 'args/ffe.txt'
-    opts = {'t_var': [1e-4, 1e-6], 'x_var': [1e-4, 1e-6]} 
-    OPTS.append(opts)
 
 elif batch == 'clip':
     OUT_FILE = 'args/clip.txt'

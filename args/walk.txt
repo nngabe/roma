@@ -1,3 +1,2 @@
---path 1716237798 --num_heads 12 --eps 1e-7
---path 1716237798 --num_heads 8 --eps 1e-6
---path 1716237798 --dropout_op 1 --dropout .04
+--path 1716237798 --nonlinear 1
+--path 1716237798 --nonlinear 0 

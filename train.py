@@ -167,7 +167,7 @@ if __name__ == '__main__':
 
         
         print(f' optim(lr,b1,b2,wd) = {args.optim}(lr={args.lr}, b1={args.b1}, b2={args.b2}, wd={args.weight_decay})')
-        print(f' w[data,pde,gpde,ms] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ms:.0e})')
+        print(f' w[data,pde,gpde,ms] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ms:.0e}*{args.w_pool})')
         print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})\n')
     
      
@@ -212,12 +212,14 @@ if __name__ == '__main__':
     epochs = args.epochs
     num_cycles = args.num_cycles
     cycle_length = args.epochs//num_cycles
-    warmup_steps = 10000 #min(10000, warmup_steps)
-    
+    warmup_steps = max(10000, epochs/2)
+    decay_steps = epochs - warmup_steps
+    lr_min = 4e-7 #* (10000 / decay_steps)   
+ 
     schedule = optax.join_schedules(schedules=
     [
       optax.linear_schedule(0., lr, warmup_steps),
-      optax.linear_schedule(lr, lr * 5e-2, epochs - warmup_steps)
+      optax.linear_schedule(lr, lr_min, epochs - warmup_steps)
     ] , boundaries=[warmup_steps])
 
     params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2, 'eps': args.epsilon}

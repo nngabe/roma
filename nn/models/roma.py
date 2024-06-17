@@ -40,6 +40,7 @@ class ROMA(eqx.Module):
     euclidean: bool
     nonlinear: bool
     eps: jnp.float32
+    eps_loss: jnp.float32
     w_l: jnp.float32 = eqx.field(static=True)
     func_pos_emb: bool
 
@@ -71,6 +72,7 @@ class ROMA(eqx.Module):
         self.euclidean = True if args.manifold=='Euclidean' else False 
         self.nonlinear = args.nonlinear
         self.eps = 1e-15
+        self.eps_loss = 1e-4
         self.w_l = 1.
         self.func_pos_emb = args.func_pos_emb
 
@@ -83,7 +85,8 @@ class ROMA(eqx.Module):
         
         assert self.coord_dim % 2 == 0
         
-        Btx= jnp.einsum('i,ij -> ij', tx, self.B).reshape(-1,1)
+        #Btx= jnp.einsum('i,ij -> ij', tx, self.B).reshape(-1,1)
+        Btx= jnp.einsum('i,ij -> j', tx, self.B).reshape(-1,1)
         tx_cos, tx_sin = jnp.sin(Btx), jnp.cos(Btx)
         tx = jnp.concatenate([tx_cos, tx_sin], axis=-1).flatten()
         return tx
@@ -216,7 +219,7 @@ class ROMA(eqx.Module):
         return res.mean() 
 
     def sMASPE(self, y, yh):
-        loss_fn =  lambda y, yh: jnp.abs(y-yh)/(jnp.abs(y) + jnp.abs(yh) + 1e-16)
+        loss_fn =  lambda y, yh: jnp.abs(y-yh)/(jnp.abs(y) + jnp.abs(yh) + 1e-4)
         if len(y.shape)>1:
             res = jax.vmap(loss_fn)(y,yh)
         else:
@@ -261,7 +264,7 @@ class ROMA(eqx.Module):
         if mode=='report': 
             loss_data = jax.vmap(self.sMASPE)(red,y[i])
             loss_data = loss_data[:self.batch_size].mean(), loss_data[self.batch_size:].mean()
-            return jnp.array([loss_data[0], loss_data[1], loss_pde, loss_gpde, loss_pool[0], loss_pool[1], loss_pool[2]])
+            return jnp.array([loss_data[0], loss_data[1], loss_pde, loss_gpde, loss_pool[0]/self.w_pool[0], loss_pool[1]/self.w_pool[1], loss_pool[2]/self.w_pool[2]])
         elif mode=='inference': 
             return u, red, z, y, grad, S, A 
     

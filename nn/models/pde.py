@@ -45,7 +45,7 @@ class burgers(eqx.Module):
         grad_t = grad[:,0]
         grad_x = grad[:,1:].ravel()
         tx = self.coord_encode(tx)
-        if hasattr(self.F, 'branch'):
+        if hasattr(self.F, 'trunk'):
             p_dim, x_dim = self.p_dim, self.x_dim
             b_dim = p_dim * x_dim
             b = z[:b_dim] 

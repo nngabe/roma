@@ -1,4 +1,3 @@
---t_var 0.0001 --x_var 0.0001 
+--t_var 1e-05 --x_var 1e-05 
 --t_var 1e-06 --x_var 1e-06 
---t_var 1e-04 --x_var 1e-04 --dropout .02 
---t_var 1e-04 --x_var 1e-04 --dropout .04
+--t_var 0.0001 --x_var 0.001 

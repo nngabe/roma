@@ -1,4 +1,4 @@
---manifold PoincareBall --w_ms 0.0001 
+--manifold Poincare 
 --manifold Euclidean 
 --w_pde 1e-20 --w_gpde 1e-20 
 --decoder ResNet 
