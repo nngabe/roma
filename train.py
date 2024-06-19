@@ -212,9 +212,9 @@ if __name__ == '__main__':
     epochs = args.epochs
     num_cycles = args.num_cycles
     cycle_length = args.epochs//num_cycles
-    warmup_steps = max(10000, epochs/2)
+    warmup_steps = min(10000, epochs/2)
     decay_steps = epochs - warmup_steps
-    lr_min = 4e-7 #* (10000 / decay_steps)   
+    lr_min = 2e-7 #* (10000 / decay_steps)   
  
     schedule = optax.join_schedules(schedules=
     [

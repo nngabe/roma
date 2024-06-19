@@ -33,14 +33,14 @@ class ROMA(eqx.Module):
     kappa: int
     batch_size: int
     scalers: np.ndarray = eqx.field(static=True)
-    beta: np.float32
+    beta: np.float32= eqx.field(static=True)
     B: jnp.ndarray = eqx.field(static=True)
     embed_pe: eqx.nn.Linear
     embed_s: eqx.nn.Linear
     euclidean: bool
     nonlinear: bool
-    eps: jnp.float32
-    eps_loss: jnp.float32
+    eps: jnp.float32 = eqx.field(static=True)
+    eps_loss: jnp.float32= eqx.field(static=True)
     w_l: jnp.float32 = eqx.field(static=True)
     func_pos_emb: bool
 
@@ -72,7 +72,7 @@ class ROMA(eqx.Module):
         self.euclidean = True if args.manifold=='Euclidean' else False 
         self.nonlinear = args.nonlinear
         self.eps = 1e-15
-        self.eps_loss = 1e-4
+        self.eps_loss = 1e-6
         self.w_l = 1.
         self.func_pos_emb = args.func_pos_emb
 

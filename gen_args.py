@@ -30,7 +30,7 @@ elif batch == 'test':
     OPTS.append(opts)
 
 elif batch.isnumeric():
-    opt_ = {'path': [batch], 'eta_var': [1e-4]}
+    opt_ = {'path': [batch], 'eta_var': [4e-4]}
     name = '_'.join([i[0]+str(i[1]) for i in opt_.items()])
     OUT_FILE = f'args/ablations_{name}.txt'
    
