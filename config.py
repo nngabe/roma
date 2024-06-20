@@ -43,8 +43,8 @@ config_args = {
         
         # loss weights
         'w_data': (1e+0, 'weight for data loss.'),
-        'w_pde': (1e+1, 'weight for pde loss.'),
-        'w_gpde': (1e+10, 'weight for gpde loss.'),
+        'w_pde': (1e+2, 'weight for pde loss.'),
+        'w_gpde': (1e+12, 'weight for gpde loss.'),
         'w_ms': (1e-1, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'which weight config for S entropy, A entropy, and LP respectively.'),
         'F_max': (1., 'max value of convective term'),
@@ -55,8 +55,8 @@ config_args = {
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
         'coord_dim': (2048, 'dimension of (t,x) embedding'), 
-        't_var': (1e-6, 'variance of time embedding in trunk net'),
-        'x_var': (1e-6, 'variance of space embedding in trunk net'),
+        't_var': (1e-5, 'variance of time embedding in trunk net'),
+        'x_var': (1e-5, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
         'pe_dim': (256, 'dimension of each positional encoding (node2vec,LE,...)'),
@@ -168,16 +168,16 @@ def configure(args):
         args.pos_emb_var = [a * args.pos_emb_var, a * 1.]
         args.level_emb_var = [a * args.level_emb_var]
     elif args.dual_pos_emb == 3:
-        args.pos_emb_var = [0., .5] 
+        args.pos_emb_var = [0., 1/2] 
         args.level_emb_var = [args.level_emb_var]
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1., 1e-20, 5e-1] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-6, 1/2] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
-        args.w_pool = [1e-1, 1e-20, 1.]
+        args.w_pool = [1., 1e-3, 1/4]
     elif args.w_pool == 2:
-        args.w_pool = [1., 1e-3, 1.]
+        args.w_pool = [1., 1e-2, 1/10]
     elif args.w_pool == 3:
         args.w_pool = [1., 1e-1, 0.]
 

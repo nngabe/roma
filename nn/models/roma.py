@@ -1,4 +1,4 @@
-from typing import Any, Optional, Sequence, Tuple, Union, Dict, List
+from typing import Any, Optional, Sequence, Tuple, Union, Dict, List, Callable
 
 import jax
 import jax.numpy as jnp
@@ -33,16 +33,17 @@ class ROMA(eqx.Module):
     kappa: int
     batch_size: int
     scalers: np.ndarray = eqx.field(static=True)
-    beta: np.float32= eqx.field(static=True)
+    beta: np.float32 = eqx.field(static=True)
     B: jnp.ndarray = eqx.field(static=True)
     embed_pe: eqx.nn.Linear
     embed_s: eqx.nn.Linear
     euclidean: bool
     nonlinear: bool
     eps: jnp.float32 = eqx.field(static=True)
-    eps_loss: jnp.float32= eqx.field(static=True)
+    eps_loss: jnp.float32 = eqx.field(static=True)
     w_l: jnp.float32 = eqx.field(static=True)
     func_pos_emb: bool
+    entr: Dict[int,Callable] = eqx.field(static=True)
 
     def __init__(self, args):
         super(ROMA, self).__init__()
@@ -75,6 +76,11 @@ class ROMA(eqx.Module):
         self.eps_loss = 1e-6
         self.w_l = 1.
         self.func_pos_emb = args.func_pos_emb
+        self.entr = {}
+        for i,d in enumerate(self.pool_dims):
+            zeta = 1 / jnp.log(d)
+            self.entr[i] = lambda x: -1. * x**zeta * jnp.log(x**zeta)
+            
 
     def coord_encode(self, tx):
         if len(tx.shape)>1:
@@ -147,8 +153,10 @@ class ROMA(eqx.Module):
             adj, w = dense_to_coo(A[i])
             z_r = jnp.concatenate([z_r, x], axis=0)
             y_r = jnp.concatenate([y_r, y], axis=-1)
-            loss_pool = loss_pool.at[0].add( self.w_pool[0] * jax.scipy.special.entr(S[i]).mean())
-            loss_pool = loss_pool.at[1].add( self.w_pool[1] * jax.scipy.special.entr(A[i+1]).mean())
+            #entr = jax.scipy.special.entr
+            entr = self.entr[i]
+            loss_pool = loss_pool.at[0].add( self.w_pool[0] * entr(S[i]).mean())
+            loss_pool = loss_pool.at[1].add( self.w_pool[1] * entr(A[i+1]).mean())
             loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', sr, sr)).mean())
             key = jr.split(key)[0]
 
