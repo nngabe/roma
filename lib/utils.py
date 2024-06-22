@@ -83,7 +83,7 @@ def read_model(args):
     else:
         print('need type(args) == dict or args.log_path == True !')
         raise
-    model = RenONet(args)
+    model = ROMA(args)
     model = eqx.tree_deserialise_leaves(param_path, model)
     return model, args
 
