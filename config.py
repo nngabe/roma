@@ -5,7 +5,7 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (2.5e-6, 'learning rate'),
+        'lr': (3e-6, 'learning rate'),
         'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
         'epochs': (60000, 'number of epochs to train for'),
@@ -43,10 +43,11 @@ config_args = {
         
         # loss weights
         'w_data': (1e+0, 'weight for data loss.'),
-        'w_pde': (1e+2, 'weight for pde loss.'),
+        'w_pde': (2e+1, 'weight for pde loss.'),
         'w_gpde': (1e+12, 'weight for gpde loss.'),
-        'w_ms': (1e-1, 'weight for assignment matrix entropy loss.'),
+        'w_ms': (2e-2, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'which weight config for S entropy, A entropy, and LP respectively.'),
+        'zeta': (2/3, 'power for entropy rescaling'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
@@ -175,7 +176,7 @@ def configure(args):
     if args.w_pool == 0:
         args.w_pool = [1., 1e-6, 1/2] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
-        args.w_pool = [1., 1e-3, 1/4]
+        args.w_pool = [1., 1e-3, 1/2]
     elif args.w_pool == 2:
         args.w_pool = [1., 1e-2, 1/10]
     elif args.w_pool == 3:

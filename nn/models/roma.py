@@ -78,8 +78,9 @@ class ROMA(eqx.Module):
         self.func_pos_emb = args.func_pos_emb
         self.entr = {}
         for i,d in enumerate(self.pool_dims):
-            zeta = 1 / jnp.log(d)
-            self.entr[i] = lambda x: -1. * x**zeta * jnp.log(x**zeta)
+            zeta = 2. / jnp.log(d) if args.zeta<1e-6 else args.zeta
+            _clip = lambda x: jax.numpy.clip(x, 1e-10, 1.)
+            self.entr[i] = lambda x: -1. * _clip(x)**zeta * jnp.log( _clip(x)**zeta + 1e-10)
             
 
     def coord_encode(self, tx):
@@ -155,7 +156,7 @@ class ROMA(eqx.Module):
             y_r = jnp.concatenate([y_r, y], axis=-1)
             #entr = jax.scipy.special.entr
             entr = self.entr[i]
-            loss_pool = loss_pool.at[0].add( self.w_pool[0] * entr(S[i]).mean())
+            loss_pool = loss_pool.at[0].add( self.w_pool[0] * jax.scipy.special.entr(S[i]).mean())
             loss_pool = loss_pool.at[1].add( self.w_pool[1] * entr(A[i+1]).mean())
             loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', sr, sr)).mean())
             key = jr.split(key)[0]
@@ -226,7 +227,7 @@ class ROMA(eqx.Module):
             res = loss_fn(y,yh) 
         return res.mean() 
 
-    def sMASPE(self, y, yh):
+    def sMSPE(self, y, yh):
         loss_fn =  lambda y, yh: jnp.abs(y-yh)/(jnp.abs(y) + jnp.abs(yh) + 1e-4)
         if len(y.shape)>1:
             res = jax.vmap(loss_fn)(y,yh)
@@ -250,7 +251,7 @@ class ROMA(eqx.Module):
             z_dec, z_pde = self.branch(z, keys[2])
             (u, txz), grad, lap_x = jax.vmap(vgl)(tx, z_dec)
             red = jax.vmap(self.pde.reduction)(u) 
-            loss_data += jax.vmap(self.sMASPE)(red,y[i])
+            loss_data += jax.vmap(self.sMSPE)(red,y[i])
             resid, gpde = jax.vmap(pde_rg)(tx, z_pde, u, grad, lap_x)
             loss_pde += jnp.square(resid).mean()
             loss_gpde += jnp.square(gpde).mean()
@@ -264,13 +265,13 @@ class ROMA(eqx.Module):
         loss_data = loss_data.at[:].set(loss_data * mask)
         
         if mode=='train':
-            rescaling = jnp.sqrt( self.batch_size / (loss_data.shape[0] - self.batch_size))
-            loss_data = loss_data.at[self.batch_size:].multiply(rescaling)  # multiscale loss is sqrt scaled to mesoscale loss
+            rescaling = jnp.sqrt( self.batch_size / (loss_data.shape[0] - self.batch_size)) 
+            loss_data = loss_data.at[self.batch_size:].multiply(rescaling) 
             loss_data = loss_data.mean()
             loss = self.w_data * loss_data + self.w_pde * loss_pde + self.w_gpde * loss_gpde + self.w_ms * loss_pool
             return loss        
         if mode=='report': 
-            loss_data = jax.vmap(self.sMASPE)(red,y[i])
+            loss_data = jax.vmap(self.sMSPE)(red,y[i])
             loss_data = loss_data[:self.batch_size].mean(), loss_data[self.batch_size:].mean()
             return jnp.array([loss_data[0], loss_data[1], loss_pde, loss_gpde, loss_pool[0]/self.w_pool[0], loss_pool[1]/self.w_pool[1], loss_pool[2]/self.w_pool[2]])
         elif mode=='inference': 

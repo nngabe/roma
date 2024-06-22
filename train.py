@@ -233,7 +233,7 @@ if __name__ == '__main__':
     state = {'a': jnp.zeros(4), 'b': jnp.zeros(4)} if args.slaw else None
     key = jax.random.PRNGKey(0)
     model = eqx.tree_inference(model, value=False)
-    for i in range(args.epochs):
+    for i in range(args.epochs+1):
       
         if i % args.batch_freq == 0: 
             batch, loader = get_next_batch(loader, args, data_train)
@@ -256,7 +256,7 @@ if __name__ == '__main__':
                       f' lr = {schedule(i).item():.2e} (time: {time.time()-tic:.1f} s)')
             tic = time.time()
             
-        if i % args.log_freq * 100 == 0:
+        if i % (args.log_freq * 10) == 0:
             utils.save_model(model, log, stamp=stamp)
 
     log['wall_time'] = int(time.time()) - int(stamp) 
