@@ -20,7 +20,7 @@ elif batch == 'test':
     OUT_FILE = 'args/test.txt'
     opts = {'path': [1716416941], 'epochs': [200000]} # 38k 
     OPTS.append(opts)
-    opts = {'path': [1715101625], 'epochs': [200000]} # 1M 
+    opts = {'path': [1716237798], 'epochs': [200000]} # 1M 
     OPTS.append(opts)
     opts = {'path': [11716416941], 'eta_var': [0.01]} # 38k, 10% noise 
     OPTS.append(opts)
@@ -30,26 +30,14 @@ elif batch == 'test':
     OPTS.append(opts)
 
 elif batch.isnumeric():
-    opt_ = {'path': [batch], 'eta_var': [4e-4]}
-    name = '_'.join([i[0]+str(i[1]) for i in opt_.items()])
-    OUT_FILE = f'args/ablations_{name}.txt'
+    opt_ = {'path': [batch]}
+    name = '_'.join([i[0]+str(i[1][0])[-3:] for i in opt_.items()])
+    OUT_FILE = f'args/ab_{name}.txt'
    
     # default ROMA
     opts = opt_ 
     OPTS.append(opts)
     
-    # DeepONet 
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0]}
-    OPTS.append(opts)
-    
-    # NOMAD
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [1]}
-    OPTS.append(opts)
-   
-    # MLP decoder
-    opts = opt_ | {'decoder': ['ResNet'], 'dec_width': [960]}
-    OPTS.append(opts)
-   
     # no renorm 
     opts = opt_ | {'pool_steps': [0]}
     OPTS.append(opts)
@@ -57,6 +45,23 @@ elif batch.isnumeric():
     # no PDE/gPDE
     opts = opt_ | {'w_pde':[0.], 'w_gpde': [0.]}
     OPTS.append(opts)
+    
+    # DeepONet 
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'dec_width': [1536]}
+    OPTS.append(opts)
+    
+    # NOMAD
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [1], 'branch_net': ['Res'], 'dec_width': [1536]}
+    OPTS.append(opts)
+   
+    # MLP decoder
+    opts = opt_ | {'decoder': ['Res'], 'dec_width': [1536], 'dec_depth': [8]}
+    OPTS.append(opts)
+    
+    # no Transformer
+    opts = opt_ | {'nonlinear': [1], 'branch_net': ['Res'], 'dec_width': [1536]}
+    OPTS.append(opts)
+   
 
     
     

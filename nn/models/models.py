@@ -140,7 +140,7 @@ class Transformer(eqx.Module):
     level_emb_var: list[float]
     dual_embed: bool
 
-    def __init__(self, in_dim, out_dim, args, key):
+    def __init__(self, args=None, in_dim=-1, out_dim=-1, key=prng(3)):
         
         keys = jr.split(key,10)
         hidden_dim = args.dec_width
@@ -215,28 +215,28 @@ class Res(eqx.Module):
     layers: eqx.nn.Sequential 
     lin: eqx.nn.Sequential = eqx.field(static=True)
 
-    def __init__(self, in_dim, out_dim, args, res=True, norm=True, module=None):
+    def __init__(self, args=None, in_dim=-1, out_dim=-1, res=True, norm=True, module=None, shared=None, key=prng(4)):
         if module:
             args, dims, _, _ = get_dim_act(args,module) 
-            self.num_layers = args.num_layers
+            self.num_layers = len(dims)
         else: 
-            self.num_layers = args.num_layers
-            hidden_dim = args.dec_width * 2
-            dims = [in_dim] + self.num_layers * [hidden_dim] + [out_dim]
+            hidden_dim = args.dec_width if args.branch_net=='Res' else args.dec_width * 2 
+            dims = [in_dim] + args.num_layers * [hidden_dim] + [out_dim]
+            self.num_layers = len(dims)
         
-        keys = jr.split(prng(4), args.dec_depth + 2 )
+        keys = jr.split(key, args.dec_depth + 2)
         self.res = res
         dropout_rate = args.dropout_trunk
         
-        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(self.num_layers +1)]        
+        self.layers = [Linear(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(self.num_layers-1)]
         if args.lin_skip: 
-            self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers +1)]
+            self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers-1)]
         else: 
-            self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) if dims[i]!=dims[i+1] else (lambda x: x) for i in range(self.num_layers +1)]
+            self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) if dims[i]!=dims[i+1] else (lambda x: x) for i in range(self.num_layers-1)]
         self.layers = eqx.nn.Sequential(self.layers)
         self.lin = eqx.nn.Sequential(self.lin)    
 
-    def __call__(self, x, key):
+    def __call__(self, x, key, pe=None):
 
         for res,layer in zip(self.lin,self.layers):
             if self.res:
@@ -295,8 +295,8 @@ class Operator(eqx.Module):
         else:
             self.trunk_dims[-1] = self.p_dim
         
-        self.branch = eval(args.branch_net)(self.branch_dims[0], self.branch_dims[-1], args, keys[0]) if not shared else None
-        self.trunk = eval(args.trunk_net)(self.trunk_dims[0], self.trunk_dims[-1], args, res=args.trunk_res, norm=args.trunk_norm)
+        self.branch = eval(args.branch_net)(args=args, in_dim=self.branch_dims[0], out_dim=self.branch_dims[-1]) if not shared else None
+        self.trunk = eval(args.trunk_net)(args=args, in_dim=self.trunk_dims[0], out_dim=self.trunk_dims[-1], res=args.trunk_res, norm=args.trunk_norm)
         self.func_pe = eqx.nn.MLP(args.embed_dims[0], self.branch_dims[0], width_size=4*args.embed_dims[0], 
                                   depth=2, activation=jax.nn.gelu, key=prng(7))
 

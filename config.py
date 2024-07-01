@@ -5,10 +5,10 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (3e-6, 'learning rate'),
+        'lr': (5e-6, 'learning rate'),
         'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
-        'epochs': (60000, 'number of epochs to train for'),
+        'epochs': (40000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -32,7 +32,7 @@ config_args = {
         'torch_seed': (1, 'seed for torch loader'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (2, 'factor of reduction for each pooling step'),
-        'pool_init_size': (64, 'size of initial coarse grained layer'),
+        'pool_init_size': (32, 'size of initial coarse grained layer'),
         'pool_steps': (1, 'number of pooling steps'),
         'eta_var': (4e-4, 'variance of multiplicative noise'),
     },
@@ -43,11 +43,11 @@ config_args = {
         
         # loss weights
         'w_data': (1e+0, 'weight for data loss.'),
-        'w_pde': (2e+1, 'weight for pde loss.'),
-        'w_gpde': (1e+12, 'weight for gpde loss.'),
-        'w_ms': (2e-2, 'weight for assignment matrix entropy loss.'),
+        'w_pde': (1e+0, 'weight for pde loss.'),
+        'w_gpde': (1e+8, 'weight for gpde loss.'),
+        'w_ms': (1e-3, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'which weight config for S entropy, A entropy, and LP respectively.'),
-        'zeta': (2/3, 'power for entropy rescaling'),
+        'zeta': (.5, 'power for entropy rescaling'),
         'F_max': (1., 'max value of convective term'),
         'v_max': (.0, 'max value of viscous term.'),
         'input_scaler': (1., 'rescaling of input'),
@@ -82,10 +82,10 @@ config_args = {
         # operator model params
         'trunk_net': ('Res', 'trunk network architecture.'),
         'branch_net': ('Transformer', 'branch net architecture.'),
-        'nonlinear': (1, 'nonlinear decoder architecture (NOMAD) or linear (DeepONet)'),
+        'nonlinear': (0, 'nonlinear decoder architecture (NOMAD) or linear (DeepONet)'),
         'nonlinear_pde': (0, 'nonlinear pde architecture (NOMAD) or linear (DeepONet)'),
         'shared_branch': (True, 'use the same branch net for forecast and pde operator'),
-        'p_basis': (-1, 'size of DeepONet basis'),
+        'p_basis': (1024, 'size of DeepONet basis'),
         'func_space': ('GRF', 'function space for DeepONet.'),
         'length_scale': (1., 'length scale for GRF'),
         'num_func': (128, 'number of functions to sample from func_space'),
@@ -103,11 +103,11 @@ config_args = {
         'enc_width': (256, 'dimensions of encoder layers'),
         'dec_width': (512, 'dimensions of decoder layers'),
         'pde_width': (-1, 'dimensions of each pde layers'),
-        'pool_width': (-1, 'dimensions of each pde layers'),
+        'pool_width': (512, 'dimensions of each pde layers'),
         'enc_depth': (2, 'dimensions of encoder layers'),
         'dec_depth': (6, 'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
-        'pool_depth': (3, 'dimensions of each pooling layer'),
+        'pool_depth': (2, 'dimensions of each pooling layer'),
         'enc_dims': ([-1]*3, 'dimensions of encoder layers'),
         'dec_dims': ([-1]*3,'dimensions of decoder layers'),
         'pde_dims': ([-1,-1,1], 'dimensions of each pde layers'),
@@ -174,9 +174,9 @@ def configure(args):
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1., 1e-6, 1/2] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-3, 1e-3] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
-        args.w_pool = [1., 1e-3, 1/2]
+        args.w_pool = [1., 1e-2, 1/4]
     elif args.w_pool == 2:
         args.w_pool = [1., 1e-2, 1/10]
     elif args.w_pool == 3:

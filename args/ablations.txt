@@ -1,7 +1,0 @@
---manifold PoincareBall --path 1714153766
---manifold PoincareBall 
---manifold Euclidean 
---pe_dim 0 
---w_pde 0.0 --w_gpde 0.0 
---decoder ResNet --dec_width 960 
---pool_steps 0 

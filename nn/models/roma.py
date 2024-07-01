@@ -44,6 +44,7 @@ class ROMA(eqx.Module):
     w_l: jnp.float32 = eqx.field(static=True)
     func_pos_emb: bool
     entr: Dict[int,Callable] = eqx.field(static=True)
+    alpha: jnp.float32 = eqx.field(static=True)
 
     def __init__(self, args):
         super(ROMA, self).__init__()
@@ -77,10 +78,11 @@ class ROMA(eqx.Module):
         self.w_l = 1.
         self.func_pos_emb = args.func_pos_emb
         self.entr = {}
+        self.alpha = 2.
         for i,d in enumerate(self.pool_dims):
             zeta = 2. / jnp.log(d) if args.zeta<1e-6 else args.zeta
             _clip = lambda x: jax.numpy.clip(x, 1e-10, 1.)
-            self.entr[i] = lambda x: -1. * _clip(x)**zeta * jnp.log( _clip(x)**zeta + 1e-10)
+            self.entr[i] = lambda x: (-1. * jnp.e * _clip(x)**zeta * jnp.log( _clip(x)**zeta + 1e-10))**self.alpha
             
 
     def coord_encode(self, tx):
@@ -154,10 +156,9 @@ class ROMA(eqx.Module):
             adj, w = dense_to_coo(A[i])
             z_r = jnp.concatenate([z_r, x], axis=0)
             y_r = jnp.concatenate([y_r, y], axis=-1)
-            #entr = jax.scipy.special.entr
-            entr = self.entr[i]
-            loss_pool = loss_pool.at[0].add( self.w_pool[0] * jax.scipy.special.entr(S[i]).mean())
-            loss_pool = loss_pool.at[1].add( self.w_pool[1] * entr(A[i+1]).mean())
+            _entr = lambda x: (jax.scipy.special.entr(x)*jnp.e)
+            loss_pool = loss_pool.at[0].add( self.w_pool[0] * _entr(S[i]).mean())
+            loss_pool = loss_pool.at[1].add( self.w_pool[1] * _entr(A[i+1]).mean())
             loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', sr, sr)).mean())
             key = jr.split(key)[0]
 
@@ -253,20 +254,21 @@ class ROMA(eqx.Module):
             red = jax.vmap(self.pde.reduction)(u) 
             loss_data += jax.vmap(self.sMSPE)(red,y[i])
             resid, gpde = jax.vmap(pde_rg)(tx, z_pde, u, grad, lap_x)
-            loss_pde += jnp.square(resid).mean()
-            loss_gpde += jnp.square(gpde).mean()
+            loss_pde += jnp.square(resid[:self.batch_size]).mean()
+            loss_gpde += jnp.square(gpde[:self.batch_size]).mean()
             if i < (m - 1): 
                 t_ += 1.
                 tx = jnp.concatenate([t_,x], axis=-1)
                 x = jnp.concatenate([z[:,1:self.kappa], red.reshape(-1,1)], axis=-1)
                 z = z.at[:,:self.kappa].set(x)
 
-        mask = jnp.abs(z[:,:10].sum(1)) > self.eps
-        loss_data = loss_data.at[:].set(loss_data * mask)
+        #mask = jnp.abs(z[:,:10].sum(1)) > self.eps
+        #loss_data = loss_data.at[:].set(loss_data * mask)
         
         if mode=='train':
-            rescaling = jnp.sqrt( self.batch_size / (loss_data.shape[0] - self.batch_size)) 
-            loss_data = loss_data.at[self.batch_size:].multiply(rescaling) 
+            if loss_data.shape[0] != self.batch_size:
+                rescaling = 0. #jnp.sqrt( self.batch_size / (loss_data.shape[0] - self.batch_size)) 
+                loss_data = loss_data.at[self.batch_size:].multiply(rescaling) 
             loss_data = loss_data.mean()
             loss = self.w_data * loss_data + self.w_pde * loss_pde + self.w_gpde * loss_gpde + self.w_ms * loss_pool
             return loss        

@@ -103,23 +103,7 @@ if __name__ == '__main__':
     print(' Done.\n')
 
 
-    @jax.jit
-    def _batch(x, pe, idx, sigma=args.eta_var, key=prng()):
-        win = jnp.arange(1 - args.kappa, 1, 1)
-        x = x.at[:, idx + win].get()
-        x = jnp.swapaxes(x,0,1)
-        
-        # add noise
-        leta = jnp.sqrt(sigma) * jr.normal(key, x.shape)
-        eta = jnp.exp(leta)
-        x = eta * x
 
-        # add positional encoding
-        pe = jnp.tile(pe, (idx.shape[0],1,1))
-        xi = jnp.concatenate([x, pe], axis=-1)
-
-        return xi
- 
     if args.log_path:
         model, args = utils.read_model(args)
     else:
@@ -169,18 +153,40 @@ if __name__ == '__main__':
         print(f' optim(lr,b1,b2,wd) = {args.optim}(lr={args.lr}, b1={args.b1}, b2={args.b2}, wd={args.weight_decay})')
         print(f' w[data,pde,gpde,ms] = ({args.w_data:.0e}, {args.w_pde:.0e}, {args.w_gpde:.0e}, {args.w_ms:.0e}*{args.w_pool})')
         print(f' dropout[enc,trunk,branch] = ({args.dropout}, {args.dropout_trunk}, {args.dropout_branch})\n')
-    
+
+    @jax.jit
+    def _batch(x, pe, idx, sigma=args.eta_var, key=prng()):
+        
+        taus = jnp.arange(1, 1+args.tau_max, 1)
+        bundles = idx + taus
+        y = x[:,bundles].T
+        y = jnp.swapaxes(y,0,1)
+ 
+        win = jnp.arange(1 - args.kappa, 1, 1)
+        x = x.at[:, idx + win].get()
+        x = jnp.swapaxes(x,0,1)
+        
+        # add noise
+        leta = jnp.sqrt(sigma) * jr.normal(key, x.shape)
+        eta = jnp.exp(leta)
+        x = eta * x
+        
+        leta = jnp.sqrt(sigma) * jr.normal(key, y.shape)
+        eta = jnp.exp(leta)
+        y = eta * y
+
+        # add positional encoding
+        pe = jnp.tile(pe, (idx.shape[0],1,1))
+        x = jnp.concatenate([x, pe], axis=-1)
+
+        return x, y
      
     #@jax.jit 
     def update(key, model, x, pe, adj, state, opt_state):
         key = jax.random.split(key)[0]
         ti = jax.random.randint(key, (args.num_col, 1), args.kappa, T-args.kappa).astype(jnp.float32)
         idx = ti.astype(int)
-        taus = jnp.arange(1, 1+args.tau_max, 1)
-        bundles = idx + taus
-        yi = x[:,bundles].T
-        yi = jnp.swapaxes(yi,0,1)
-        xi = _batch(x, pe, idx, key=key)
+        xi,yi = _batch(x, pe, idx, key=key)
         
         (loss, state), grad = loss_train(model, xi, adj, ti, yi, key=key, mode='train', state=state)
         grad = jax.tree_map(lambda x: 0. if jnp.isnan(x).any() else x, grad) 
@@ -195,11 +201,7 @@ if __name__ == '__main__':
         model = eqx.tree_inference(model, value=True) 
         ti = jnp.linspace(args.kappa, T - args.kappa , 20).reshape(-1,1)
         idx = ti.astype(int)
-        taus = jnp.arange(1, 1+args.tau_max, 1).astype(int)
-        bundles = idx + taus
-        yi = x[:,bundles].T
-        yi = jnp.swapaxes(yi,0,1)
-        xi = _batch(x, pe, idx, sigma=0.)
+        xi,yi = _batch(x, pe, idx, sigma=0.)
         
         terms, _ = loss_report(model, xi, adj, ti, yi)
         loss = [term.mean() for term in terms]
@@ -214,7 +216,7 @@ if __name__ == '__main__':
     cycle_length = args.epochs//num_cycles
     warmup_steps = min(10000, epochs/2)
     decay_steps = epochs - warmup_steps
-    lr_min = 2e-7 #* (10000 / decay_steps)   
+    lr_min = 1e-7 #* (10000 / decay_steps)   
  
     schedule = optax.join_schedules(schedules=
     [
