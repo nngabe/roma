@@ -68,7 +68,6 @@ class ROMA(eqx.Module):
         self.scalers = np.concatenate([[args.t_var], self.x_dim * [args.x_var]], axis=0).reshape(-1,1)
         self.beta = args.beta 
         self.B = self.scalers * jr.normal(prng(), (1 + self.x_dim, args.coord_dim//2))
-        #self.embed_pe = eqx.nn.MLP(args.pe_size, self.kappa, 4 * self.kappa, 2, activation = jax.nn.gelu, key=prng()) 
         self.embed_s = eqx.nn.Linear(args.kappa, args.pe_embed_dim*2, key = prng(1))
         self.embed_pe = eqx.nn.Linear(args.pe_size, args.pe_embed_dim*2, key = prng(2)) 
         self.euclidean = True if args.manifold=='Euclidean' else False 
@@ -158,7 +157,7 @@ class ROMA(eqx.Module):
             y_r = jnp.concatenate([y_r, y], axis=-1)
             _entr = lambda x: (jax.scipy.special.entr(x)*jnp.e)
             loss_pool = loss_pool.at[0].add( self.w_pool[0] * _entr(S[i]).mean())
-            loss_pool = loss_pool.at[1].add( self.w_pool[1] * _entr(A[i+1]).mean())
+            loss_pool = loss_pool.at[1].add( self.w_pool[1] * self.entr[0](A[i+1]).mean())
             loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', sr, sr)).mean())
             key = jr.split(key)[0]
 

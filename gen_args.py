@@ -38,6 +38,18 @@ elif batch.isnumeric():
     opts = opt_ 
     OPTS.append(opts)
     
+    # DeepONet 
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0], 'dec_width': [2048]}
+    OPTS.append(opts)
+    
+    # NOMAD
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [1], 'branch_net': ['Res'], 'pe_embed_dim': [0], 'dec_width': [2048]}
+    OPTS.append(opts)
+   
+    # MLP decoder
+    opts = opt_ | {'decoder': ['Res'], 'dec_width': [2048]}
+    OPTS.append(opts)
+    
     # no renorm 
     opts = opt_ | {'pool_steps': [0]}
     OPTS.append(opts)
@@ -46,20 +58,9 @@ elif batch.isnumeric():
     opts = opt_ | {'w_pde':[0.], 'w_gpde': [0.]}
     OPTS.append(opts)
     
-    # DeepONet 
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'dec_width': [1536]}
-    OPTS.append(opts)
-    
-    # NOMAD
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [1], 'branch_net': ['Res'], 'dec_width': [1536]}
-    OPTS.append(opts)
    
-    # MLP decoder
-    opts = opt_ | {'decoder': ['Res'], 'dec_width': [1536], 'dec_depth': [8]}
-    OPTS.append(opts)
-    
     # no Transformer
-    opts = opt_ | {'nonlinear': [1], 'branch_net': ['Res'], 'dec_width': [1536]}
+    opts = opt_ | {'branch_net': ['Res'], 'dec_width': [1536]}
     OPTS.append(opts)
    
 

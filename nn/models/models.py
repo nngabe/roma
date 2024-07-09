@@ -297,8 +297,10 @@ class Operator(eqx.Module):
         
         self.branch = eval(args.branch_net)(args=args, in_dim=self.branch_dims[0], out_dim=self.branch_dims[-1]) if not shared else None
         self.trunk = eval(args.trunk_net)(args=args, in_dim=self.trunk_dims[0], out_dim=self.trunk_dims[-1], res=args.trunk_res, norm=args.trunk_norm)
-        self.func_pe = eqx.nn.MLP(args.embed_dims[0], self.branch_dims[0], width_size=4*args.embed_dims[0], 
-                                  depth=2, activation=jax.nn.gelu, key=prng(7))
+        if args.embed_dims[0] > 0: 
+            self.func_pe = eqx.nn.MLP(args.embed_dims[0], self.branch_dims[0], width_size=4*args.embed_dims[0], depth=2, activation=jax.nn.gelu, key=prng(7))
+        else:
+            self.func_pe = lambda x,key: x 
 
 class HGCN(GraphNet):
     

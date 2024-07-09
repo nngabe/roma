@@ -37,7 +37,8 @@ if __name__ == '__main__':
     stamp = str(int(time.time()))
     args = parser.parse_args()
     args = configure(args)    
-    
+    print(f'enc_dims = {args.enc_dims}')    
+    print(f'embed_dims = {args.embed_dims}')    
     args.data_path = glob.glob(f'../data/x*{args.path}*parquet')[0]
     args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*')[0]
     args.pe_path = pe_path_from(args)
@@ -101,8 +102,6 @@ if __name__ == '__main__':
     x_batch, adj_batch, pe_batch = pad_graph(x=x[batch.idx.numpy()], adj=batch.edge_index.numpy(), pe=pe[batch.idx.numpy()], x_size=args.batch_size)
     time.sleep(0.2)
     print(' Done.\n')
-
-
 
     if args.log_path:
         model, args = utils.read_model(args)
@@ -216,7 +215,7 @@ if __name__ == '__main__':
     cycle_length = args.epochs//num_cycles
     warmup_steps = min(10000, epochs/2)
     decay_steps = epochs - warmup_steps
-    lr_min = 1e-7 #* (10000 / decay_steps)   
+    lr_min = 1e-8 #* (10000 / decay_steps)   
  
     schedule = optax.join_schedules(schedules=
     [

@@ -88,9 +88,12 @@ class HypAgg(eqx.Module):
         self.agg = args.agg
         self.use_att = args.use_att
         self.attn = DenseAtt(in_features, heads=args.num_gat_heads) if self.use_att else None
-        self.edge_conv = eqx.nn.MLP(3 * in_features, in_features, width_size=6*in_features, depth=2, activation=jax.nn.gelu, key=prng(0)) if args.edge_conv=='mlp' else None
-        self.edge_conv = eqx.nn.Linear(3 * in_features, in_features, key=prng(0)) if args.edge_conv=='linear' else self.edge_conv
-        self.agg_embed = eqx.nn.MLP(4 * in_features, in_features, width_size=6*in_features, depth=2, activation=jax.nn.gelu, key=prng(1)) if args.agg=='multi' else None
+        
+        k = 6
+        d = 2
+        self.edge_conv = eqx.nn.MLP(2 * in_features, in_features, width_size=k*in_features, depth=d, activation=jax.nn.gelu, key=prng(0)) if args.edge_conv=='mlp' else None
+        self.edge_conv = eqx.nn.Linear(2 * in_features, in_features, key=prng(0)) if args.edge_conv=='linear' else self.edge_conv
+        self.agg_embed = eqx.nn.MLP(4 * in_features, in_features, width_size=k*in_features, depth=d, activation=jax.nn.gelu, key=prng(1)) if args.agg=='multi' else None
         #self.agg_embed = eqx.nn.Linear(4 * in_features, in_features, width_size=4*in_features, depth=2, activation=jax.nn.gelu, key=prng(1)) if args.agg=='multi' else None
         self.dropout = eqx.nn.Dropout(args.dropout)
 
@@ -105,24 +108,20 @@ class HypAgg(eqx.Module):
         else:
             # edge covolution or use sender features directly
             if self.edge_conv:
-                x_s = jnp.concatenate([x[r], x[s], x[s]-x[r]], axis=-1)
+                x_s = jnp.concatenate([x[r], x[s]-x[r]], axis=-1)
                 x_s = jax.vmap(self.edge_conv)(x_s)
             else:
                 x_s = x[s]
             # aggregation function. use mean if weighted else use self.agg
             if isinstance(w,jnp.ndarray): 
                 x_s = jnp.einsum('ij,i -> ij', x_s, w)
-            #    if self.agg=='sum': 
-            #        x_agg = jraph.segment_sum(x_s, r, n)
-            #    else: 
-            #        x_agg = jraph.segment_sum(x_s, r, n)
             if self.agg == 'multi':
-                temp = jnp.array([1.])
-                x_softmax = [segment_softmax(t)(x_s, r, n) for t in temp]
+                temp = jnp.array([10.])
+                x_max = jraph.segment_max(x_s, r, n)   #[segment_softmax(t)(x_s, r, n) for t in temp]
                 x_sum = jraph.segment_sum(x_s, r, n)
                 x_mean = jraph.segment_mean(x_s, r, n)
                 x_var = jraph.segment_variance(x_s, r, n)
-                x_agg = jnp.concatenate([x_sum, x_mean, x_var] + x_softmax, axis=-1)
+                x_agg = jnp.concatenate([x_sum, x_mean, x_var, x_max], axis=-1)
                 x_agg = jax.vmap(self.agg_embed)(x_agg)
             elif self.agg == 'mean':
                 x_agg = jraph.segment_mean(x_s, r, n)

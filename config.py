@@ -8,7 +8,7 @@ config_args = {
         'lr': (5e-6, 'learning rate'),
         'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
-        'epochs': (40000, 'number of epochs to train for'),
+        'epochs': (80000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -32,7 +32,7 @@ config_args = {
         'torch_seed': (1, 'seed for torch loader'),
         'batch_red': (2, 'factor of reduction for batch size'),
         'pool_red': (2, 'factor of reduction for each pooling step'),
-        'pool_init_size': (32, 'size of initial coarse grained layer'),
+        'pool_init_size': (64, 'size of initial coarse grained layer'),
         'pool_steps': (1, 'number of pooling steps'),
         'eta_var': (4e-4, 'variance of multiplicative noise'),
     },
@@ -85,7 +85,7 @@ config_args = {
         'nonlinear': (0, 'nonlinear decoder architecture (NOMAD) or linear (DeepONet)'),
         'nonlinear_pde': (0, 'nonlinear pde architecture (NOMAD) or linear (DeepONet)'),
         'shared_branch': (True, 'use the same branch net for forecast and pde operator'),
-        'p_basis': (1024, 'size of DeepONet basis'),
+        'p_basis': (2048, 'size of DeepONet basis'),
         'func_space': ('GRF', 'function space for DeepONet.'),
         'length_scale': (1., 'length scale for GRF'),
         'num_func': (128, 'number of functions to sample from func_space'),
@@ -101,13 +101,13 @@ config_args = {
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
         'enc_width': (256, 'dimensions of encoder layers'),
-        'dec_width': (512, 'dimensions of decoder layers'),
+        'dec_width': (1024, 'dimensions of decoder layers'),
         'pde_width': (-1, 'dimensions of each pde layers'),
-        'pool_width': (512, 'dimensions of each pde layers'),
+        'pool_width': (1024, 'dimensions of each pde layers'),
         'enc_depth': (2, 'dimensions of encoder layers'),
-        'dec_depth': (6, 'dimensions of decoder layers'),
+        'dec_depth': (7, 'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
-        'pool_depth': (2, 'dimensions of each pooling layer'),
+        'pool_depth': (1, 'dimensions of each pooling layer'),
         'enc_dims': ([-1]*3, 'dimensions of encoder layers'),
         'dec_dims': ([-1]*3,'dimensions of decoder layers'),
         'pde_dims': ([-1,-1,1], 'dimensions of each pde layers'),
@@ -159,6 +159,7 @@ def configure(args):
     if args.pool_width==-1: args.pool_width = args.dec_width
     if args.p_basis == -1: args.p_basis = args.dec_width
     args.pde_width = args.dec_width
+    args.pde_depth = args.dec_depth
 
     # multiscale embedding weights
     if args.dual_pos_emb == 1:
@@ -167,7 +168,7 @@ def configure(args):
     elif args.dual_pos_emb == 2:
         a = 1/2
         args.pos_emb_var = [a * args.pos_emb_var, a * 1.]
-        args.level_emb_var = [a * args.level_emb_var]
+        args.level_emb_var = [args.level_emb_var]
     elif args.dual_pos_emb == 3:
         args.pos_emb_var = [0., 1/2] 
         args.level_emb_var = [args.level_emb_var]
@@ -196,19 +197,17 @@ def configure(args):
     args.rw_size = 0 # args.pe_dim
     args.n2v_size = args.pe_dim 
     args.pe_size = args.le_size + args.rw_size + args.n2v_size
+
     
     # layer dims (enc,renorm,pde,dec)
-    args.pde_depth = args.dec_depth
     args.enc_dims[0] = 2 * args.pe_embed_dim + args.kappa
-    #args.enc_dims[0] = args.kappa + args.pe_embed_dim
-    #args.enc_dims[0] += args.le_size + args.rw_size + args.n2v_size
-    args.enc_dims[-1] = args.enc_width 
-    args.dec_dims[-1] = args.x_dim
     args.enc_dims[1:-1] = (args.enc_depth-1) * [args.enc_width]
     args.dec_dims[1:-1] = (args.dec_depth-1) * [args.dec_width]
     args.pde_dims[1:-1] = (args.pde_depth-1) * [args.pde_width]
     args.pool_dims[1:-1] = (args.pool_depth-1) * [args.pool_width]
     args.embed_dims[1:-1] = (args.pool_depth-1) * [args.pool_width]
+    args.enc_dims[-1:] = [args.enc_width] if args.enc_depth > 0 else []
+    args.dec_dims[-1:] = [args.x_dim]
 
     if args.res: 
         enc_out = sum(args.enc_dims) 
@@ -230,6 +229,7 @@ def configure(args):
     args.pool_dims[-1] = args.pool_size[0] * args.pool_red
     args.embed_dims[-1] = args.embed_dims[0] 
 
+    if args.embed_dims[0]==0: args.func_pos_emb = 0  
 
     return args 
 
@@ -237,4 +237,4 @@ parser = argparse.ArgumentParser()
 for _, config_dict in config_args.items():
     parser = add_flags_from_config(parser, config_dict)
 args = parser.parse_args()
-args = configure(args)
+#args = configure(args)

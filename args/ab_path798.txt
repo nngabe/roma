@@ -1,14 +1,6 @@
---path 1716237798 --pool_steps 1 --dec_width 1024 --p_basis 2048 --pool_init_size 64
---path 1716237798 --pool_steps 1 --dec_width 1024 --p_basis 2048 --pool_init_size 32
---path 1716237798 --pool_steps 1 --dec_width 1024 --p_basis 2048 --pool_init_size 16
---path 1716237798 --pool_steps 0 --nonlinear 0 --dec_width 1024 --p_basis 2048 
---path 1716237798 --pool_steps 1 --dec_width 1024 --p_basis 2048 --pool_init_size 64
---path 1716237798 --pool_steps 1 --dec_width 1024 --p_basis 2048 --pool_init_size 64 --lr 1e-5 --epochs 20000
---path 1716237798 --pool_steps 0 --nonlinear 1 --dec_width 1024
---path 1716237798 --nonlinear 0 --branch_net Res --dec_width 1536 
---path 1716237798 --nonlinear 1 --branch_net Res --dec_width 1536 
+--path 1716237798 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 0 --nonlinear 0 --branch_net Res --pe_embed_dim 0 --dec_width 1024
+--path 1716237798 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 0 --nonlinear 1 --branch_net Res --pe_embed_dim 0 --dec_width 1024 
+--path 1716237798 --decoder Res --dec_width 2048 
+--path 1716237798 --pool_steps 0 
 --path 1716237798 --w_pde 0.0 --w_gpde 0.0 
---path 1716237798 --p_basis 1536 --pool_init_size 16
---path 1716237798 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 0 --nonlinear 0 --branch_net Res --dec_width 1536 
---path 1716237798 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 0 --nonlinear 1 --branch_net Res --dec_width 1536 
---path 1716237798 --decoder Res --dec_width 1536 --dec_depth 8 
+--path 1716237798 --branch_net Res --dec_width 1536 
