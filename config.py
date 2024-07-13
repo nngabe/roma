@@ -8,7 +8,7 @@ config_args = {
         'lr': (5e-6, 'learning rate'),
         'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
-        'epochs': (80000, 'number of epochs to train for'),
+        'steps': (80000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -61,7 +61,7 @@ config_args = {
 
         # positional encoding arguments
         'pe_dim': (256, 'dimension of each positional encoding (node2vec,LE,...)'),
-        'pe_embed_dim': (256, 'dimension of pe linear embedding'),
+        'pe_embed_dim': (64, 'dimension of pe linear embedding'),
         'le_size': (-1, 'size of laplacian eigenvector positional encoding'),
         'rw_size': (-1, 'size of random walk (diffusion) positional encoding'),
         'n2v_size': (-1, 'size of node2vec positional encoding'),
@@ -104,7 +104,7 @@ config_args = {
         'dec_width': (1024, 'dimensions of decoder layers'),
         'pde_width': (-1, 'dimensions of each pde layers'),
         'pool_width': (1024, 'dimensions of each pde layers'),
-        'enc_depth': (2, 'dimensions of encoder layers'),
+        'enc_depth': (1, 'dimensions of encoder layers'),
         'dec_depth': (7, 'dimensions of decoder layers'),
         'pde_depth': (-1, 'dimensions of each pde layers'),
         'pool_depth': (1, 'dimensions of each pooling layer'),
@@ -117,7 +117,7 @@ config_args = {
         
         # graph network params
         'res': (True, 'whether to use sum skip connections or not.'),
-        'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
+        'cat': (False, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
         'c': (1/8, 'hyperbolic radius, set to None for trainable curvature'),
         'edge_conv': ('mlp', 'use edge convolution or not'),
@@ -209,7 +209,8 @@ def configure(args):
     args.enc_dims[-1:] = [args.enc_width] if args.enc_depth > 0 else []
     args.dec_dims[-1:] = [args.x_dim]
 
-    if args.res: 
+    args.cat = bool(args.cat)
+    if args.cat: 
         enc_out = sum(args.enc_dims) 
     else: 
         enc_out = args.enc_dims[-1] 
@@ -224,8 +225,8 @@ def configure(args):
         #args.pde_dims[0] = args.dec_dims[0] + 1 * args.x_dim
         #args.pde_dims[0] = args.dec_dims[0] + 5 * args.x_dim
         
-    args.pool_dims[0] = enc_out - args.kappa
-    args.embed_dims[0] = enc_out - args.kappa 
+    args.pool_dims[0] = enc_out - args.kappa if args.cat else enc_out
+    args.embed_dims[0] = enc_out - args.kappa if args.cat else enc_out
     args.pool_dims[-1] = args.pool_size[0] * args.pool_red
     args.embed_dims[-1] = args.embed_dims[0] 
 

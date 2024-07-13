@@ -37,6 +37,7 @@ if __name__ == '__main__':
     stamp = str(int(time.time()))
     args = parser.parse_args()
     args = configure(args)    
+    print(f'args.cat = {args.cat}')
     print(f'enc_dims = {args.enc_dims}')    
     print(f'embed_dims = {args.embed_dims}')    
     args.data_path = glob.glob(f'../data/x*{args.path}*parquet')[0]
@@ -207,20 +208,20 @@ if __name__ == '__main__':
         model = eqx.tree_inference(model, value=False) 
         return loss, model
 
-    if args.epochs == 0: sys.exit(0)
+    if args.steps == 0: sys.exit(0)
 
     lr = args.lr
-    epochs = args.epochs
+    steps = args.steps
     num_cycles = args.num_cycles
-    cycle_length = args.epochs//num_cycles
-    warmup_steps = min(10000, epochs/2)
-    decay_steps = epochs - warmup_steps
+    cycle_length = args.steps//num_cycles
+    warmup_steps = min(10000, steps/2)
+    decay_steps = steps - warmup_steps
     lr_min = 1e-8 #* (10000 / decay_steps)   
  
     schedule = optax.join_schedules(schedules=
     [
       optax.linear_schedule(0., lr, warmup_steps),
-      optax.linear_schedule(lr, lr_min, epochs - warmup_steps)
+      optax.linear_schedule(lr, lr_min, steps - warmup_steps)
     ] , boundaries=[warmup_steps])
 
     params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2, 'eps': args.epsilon}
@@ -234,7 +235,7 @@ if __name__ == '__main__':
     state = {'a': jnp.zeros(4), 'b': jnp.zeros(4)} if args.slaw else None
     key = jax.random.PRNGKey(0)
     model = eqx.tree_inference(model, value=False)
-    for i in range(args.epochs+1):
+    for i in range(args.steps+1):
       
         if i % args.batch_freq == 0: 
             batch, loader = get_next_batch(loader, args, data_train)
@@ -251,7 +252,7 @@ if __name__ == '__main__':
             log['loss'][i] = [loss[0].item(), loss[1].item(), loss[2].item(), loss[3].item(), loss[4].item(), loss[5].item(), loss[6].item()]
             
             if args.verbose:
-                print(f'{i:04d}/{args.epochs} : l_data = ({loss[0]:.2e}, {loss[1]:.2e}),'
+                print(f'{i:04d}/{args.steps} : l_data = ({loss[0]:.2e}, {loss[1]:.2e}),'
                       f' l_pde = ({loss[2]:.2e}, {loss[3]:.2e}),' 
                       f' l_ms = ({loss[4]:.2e}, {loss[5]:.2e}, {loss[6]:.2e}); ' 
                       f' lr = {schedule(i).item():.2e} (time: {time.time()-tic:.1f} s)')

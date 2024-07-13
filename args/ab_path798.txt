@@ -1,6 +1,2 @@
---path 1716237798 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 0 --nonlinear 0 --branch_net Res --pe_embed_dim 0 --dec_width 1024
---path 1716237798 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 0 --nonlinear 1 --branch_net Res --pe_embed_dim 0 --dec_width 1024 
---path 1716237798 --decoder Res --dec_width 2048 
---path 1716237798 --pool_steps 0 
---path 1716237798 --w_pde 0.0 --w_gpde 0.0 
---path 1716237798 --branch_net Res --dec_width 1536 
+--path 1716237798 --cat 0
+--path 1716237798 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 0 --nonlinear 0 --branch_net Res 

@@ -32,6 +32,7 @@ class GraphNet(eqx.Module):
     u_dim: int
     euclidean: bool
     dropout: eqx.nn.Dropout
+    censor: bool
 
     def __init__(self, args, module):
         super(GraphNet, self).__init__()
@@ -43,6 +44,7 @@ class GraphNet(eqx.Module):
         self.u_dim = args.kappa
         self.euclidean = True if args.manifold=='Euclidean' else False
         self.dropout = eqx.nn.Dropout(args.dropout)
+        self.censor = (args.enc_depth == 0)
 
     def exp(self, x):
         x = self.manifold.proj_tan0(x, c=self.c)
@@ -69,9 +71,14 @@ class GraphNet(eqx.Module):
             x = self.exp(x)
             key = jax.random.split(key)[0]
         if self.cat:
-            return jnp.concatenate(x_i, axis=-1)
+            res = jnp.concatenate(x_i, axis=-1)
         else:
-            return self.log(x)
+            res = self.log(x)
+        if self.censor:
+            res = res.at[:].mul(0.)
+        
+        return res
+        
 
 
 class AttentionBlock(eqx.Module):
