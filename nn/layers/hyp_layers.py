@@ -89,7 +89,7 @@ class HypAgg(eqx.Module):
         self.use_att = args.use_att
         self.attn = DenseAtt(in_features, heads=args.num_gat_heads) if self.use_att else None
         
-        k = 6
+        k = 4
         d = 2
         self.edge_conv = eqx.nn.MLP(2 * in_features, in_features, width_size=k*in_features, depth=d, activation=jax.nn.gelu, key=prng(0)) if args.edge_conv=='mlp' else None
         self.edge_conv = eqx.nn.Linear(2 * in_features, in_features, key=prng(0)) if args.edge_conv=='linear' else self.edge_conv

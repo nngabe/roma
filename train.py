@@ -37,9 +37,7 @@ if __name__ == '__main__':
     stamp = str(int(time.time()))
     args = parser.parse_args()
     args = configure(args)    
-    print(f'args.cat = {args.cat}')
-    print(f'enc_dims = {args.enc_dims}')    
-    print(f'embed_dims = {args.embed_dims}')    
+    
     args.data_path = glob.glob(f'../data/x*{args.path}*parquet')[0]
     args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*')[0]
     args.pe_path = pe_path_from(args)

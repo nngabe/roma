@@ -8,7 +8,7 @@ config_args = {
         'lr': (5e-6, 'learning rate'),
         'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
-        'steps': (80000, 'number of epochs to train for'),
+        'steps': (20000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -45,7 +45,7 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+8, 'weight for gpde loss.'),
-        'w_ms': (1e-3, 'weight for assignment matrix entropy loss.'),
+        'w_ms': (1e-4, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'which weight config for S entropy, A entropy, and LP respectively.'),
         'zeta': (.5, 'power for entropy rescaling'),
         'F_max': (1., 'max value of convective term'),
@@ -97,10 +97,11 @@ config_args = {
         'level_emb_var': (1., 'variance of transformer level embedding'),
         'func_pos_emb': (1, 'use functional positional embedding in Transformer'),
         'dual_pos_emb': (1, 'use dual positional embedding'),
+        'func_pe_ln': (1, 'apply layernorm after func_pe MLP'),
         'lin_skip': (1, 'use ortho or identity skip connections when consecutive layers are the same size'),
 
         # dims of neural nets. -1 will be inferred based on args.skip and args.time_enc. 
-        'enc_width': (256, 'dimensions of encoder layers'),
+        'enc_width': (512, 'dimensions of encoder layers'),
         'dec_width': (1024, 'dimensions of decoder layers'),
         'pde_width': (-1, 'dimensions of each pde layers'),
         'pool_width': (1024, 'dimensions of each pde layers'),
@@ -117,9 +118,9 @@ config_args = {
         
         # graph network params
         'res': (True, 'whether to use sum skip connections or not.'),
-        'cat': (False, 'whether to concatenate all intermediate layers to final layer.'),
+        'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
-        'c': (1/8, 'hyperbolic radius, set to None for trainable curvature'),
+        'c': (1/10, 'hyperbolic radius, set to None for trainable curvature'),
         'edge_conv': ('mlp', 'use edge convolution or not'),
         'agg': ('multi', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
@@ -209,11 +210,11 @@ def configure(args):
     args.enc_dims[-1:] = [args.enc_width] if args.enc_depth > 0 else []
     args.dec_dims[-1:] = [args.x_dim]
 
+    args.func_pe_ln = bool(args.func_pe_ln)
     args.cat = bool(args.cat)
-    if args.cat: 
-        enc_out = sum(args.enc_dims) 
-    else: 
-        enc_out = args.enc_dims[-1] 
+    enc_out = args.enc_dims[-1] 
+    if len(args.enc_dims)==1: enc_out -= args.kappa
+
     
     #args.dec_dims[0] = enc_out + (1 + args.x_dim) * args.coord_dim
     args.dec_dims[0] = enc_out + (1) * args.coord_dim
@@ -225,8 +226,8 @@ def configure(args):
         #args.pde_dims[0] = args.dec_dims[0] + 1 * args.x_dim
         #args.pde_dims[0] = args.dec_dims[0] + 5 * args.x_dim
         
-    args.pool_dims[0] = enc_out - args.kappa if args.cat else enc_out
-    args.embed_dims[0] = enc_out - args.kappa if args.cat else enc_out
+    args.pool_dims[0] = enc_out #- args.kappa if args.cat else enc_out
+    args.embed_dims[0] = enc_out #- args.kappa if args.cat else enc_out
     args.pool_dims[-1] = args.pool_size[0] * args.pool_red
     args.embed_dims[-1] = args.embed_dims[0] 
 

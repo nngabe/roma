@@ -29,7 +29,7 @@ class GraphNet(eqx.Module):
     encode_graph: bool
     manifold: Optional[manifolds.base.Manifold] = None
     pe_dim: int
-    u_dim: int
+    kappa: int
     euclidean: bool
     dropout: eqx.nn.Dropout
     censor: bool
@@ -41,7 +41,7 @@ class GraphNet(eqx.Module):
         self.cat = bool(args.cat) if module=='enc' else False
         self.norm = bool(args.use_layer_norm)
         self.pe_dim = args.pe_dim
-        self.u_dim = args.kappa
+        self.kappa = args.kappa
         self.euclidean = True if args.manifold=='Euclidean' else False
         self.dropout = eqx.nn.Dropout(args.dropout)
         self.censor = (args.enc_depth == 0)
@@ -57,7 +57,7 @@ class GraphNet(eqx.Module):
         return y
 
     def __call__(self, x, adj, key, w):
-        x_i = [x]
+        x_i = [x[:,:self.kappa], x[:,self.kappa:]]
         x = self.exp(x)
         for conv,lin,norm in zip(self.layers, self.lin, self.layer_norm):
             h,_ = conv(x, adj, key, w)
@@ -71,15 +71,14 @@ class GraphNet(eqx.Module):
             x = self.exp(x)
             key = jax.random.split(key)[0]
         if self.cat:
-            res = jnp.concatenate(x_i, axis=-1)
+            res = jnp.concatenate([x_i[0], x_i[-1]], axis=-1)
         else:
+            #jax.debug.print('x_i = {}', [x.shape for x in x_i])
             res = self.log(x)
         if self.censor:
-            res = res.at[:].mul(0.)
-        
+            res = res.at[:,self.kappa:].mul(0.)
         return res
         
-
 
 class AttentionBlock(eqx.Module):
     layer_norm1: eqx.nn.LayerNorm
@@ -291,7 +290,7 @@ class Operator(eqx.Module):
 
         # set dimensions of trunk net
         self.trunk_dims = copy.copy(dims)
-        self.trunk_dims[0] = dims[0] - self.u_dim
+        #self.trunk_dims[0] = dims[0] - self.u_dim
         
         if module=='pde' and args.nonlinear_pde:
             self.trunk_dims[0] += self.p_dim * args.x_dim 
@@ -305,7 +304,10 @@ class Operator(eqx.Module):
         self.branch = eval(args.branch_net)(args=args, in_dim=self.branch_dims[0], out_dim=self.branch_dims[-1]) if not shared else None
         self.trunk = eval(args.trunk_net)(args=args, in_dim=self.trunk_dims[0], out_dim=self.trunk_dims[-1], res=args.trunk_res, norm=args.trunk_norm)
         if args.embed_dims[0] > 0: 
-            self.func_pe = eqx.nn.MLP(args.embed_dims[0], self.branch_dims[0], width_size=4*args.embed_dims[0], depth=2, activation=jax.nn.gelu, key=prng(7))
+            self.func_pe = eqx.nn.Sequential(
+                                [eqx.nn.MLP(args.embed_dims[0], self.branch_dims[0], width_size=4*args.embed_dims[0], depth=2, activation=jax.nn.gelu, key=prng(7)),
+                                 eqx.nn.LayerNorm(self.branch_dims[0], use_weight=True, use_bias=True) if args.func_pe_ln else lambda x,key: x
+                                ])
         else:
             self.func_pe = lambda x,key: x 
 

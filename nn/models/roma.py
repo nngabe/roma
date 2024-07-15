@@ -116,8 +116,6 @@ class ROMA(eqx.Module):
     def encode(self, x, adj, key):
         s,pe = x[:,:self.kappa], x[:,self.kappa:]
         pe = jax.vmap(self.embed_pe)(pe)
-        #se = jax.vmap(self.embed_s)(s)
-        #pe += se
         x = jnp.concatenate([s,pe], axis=-1)
         x = self.encoder(x, adj, key)
         return x
