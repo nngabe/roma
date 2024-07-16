@@ -120,7 +120,7 @@ config_args = {
         'res': (True, 'whether to use sum skip connections or not.'),
         'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
-        'c': (1/10, 'hyperbolic radius, set to None for trainable curvature'),
+        'c': (1/8, 'hyperbolic radius, set to None for trainable curvature'),
         'edge_conv': ('mlp', 'use edge convolution or not'),
         'agg': ('multi', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
@@ -176,9 +176,9 @@ def configure(args):
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1., 1e-3, 1e-3] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-12, 1e-3] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
-        args.w_pool = [1., 1e-2, 1/4]
+        args.w_pool = [1., 1e-12, 1e-2]
     elif args.w_pool == 2:
         args.w_pool = [1., 1e-2, 1/10]
     elif args.w_pool == 3:

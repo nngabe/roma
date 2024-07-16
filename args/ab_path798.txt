@@ -1,3 +1,5 @@
---path 1716237798 --enc_width 1024 --w_ms 5e-4 
---path 1716237798 --enc_width 512 --w_ms 5e-4
+--path 1716237798 --enc_width 512 --w_ms 1e-3 --w_pool 1 --c .125
+--path 1716237798 --enc_width 512 --w_ms 1e-3 --w_pool 0 --c .25
+--path 1716237798 --enc_width 256 --w_ms 1e-3 --w_pool 1
+--path 1716237798 --enc_width 1024 --w_ms 1e-3 --w_pool 1
 --path 1716237798 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 0 --nonlinear 0 --branch_net Res 

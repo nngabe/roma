@@ -45,6 +45,8 @@ class ROMA(eqx.Module):
     func_pos_emb: bool
     entr: Dict[int,Callable] = eqx.field(static=True)
     alpha: jnp.float32 = eqx.field(static=True)
+    r_fd: jnp.array
+    t_fd: jnp.array
 
     def __init__(self, args):
         super(ROMA, self).__init__()
@@ -82,7 +84,20 @@ class ROMA(eqx.Module):
             zeta = 2. / jnp.log(d) if args.zeta<1e-6 else args.zeta
             _clip = lambda x: jax.numpy.clip(x, 1e-10, 1.)
             self.entr[i] = lambda x: (-1. * jnp.e * _clip(x)**zeta * jnp.log( _clip(x)**zeta + 1e-10))**self.alpha
-            
+        self.r_fd = jnp.array(1.)
+        self.t_fd = jnp.array(.5)        
+
+    def fermi_dirac_lp(self, x):
+        x = self.exp(x)
+        fd = lambda dist: 1. / ( jnp.exp( (dist - self.r_fd)/self.t_fd ) + 1.)
+        res = jnp.zeros((self.batch_size, self.batch_size))
+        i,j = jnp.triu_indices(self.batch_size)
+        x_i, x_j = x[i], x[j]
+        d2 = jax.vmap(self.manifold.sqdist, in_axes=(0,0,None))(x_i, x_j, self.c)
+        fd_dist = jax.vmap(fd)(d2)
+        res = res.at[i,j].set(fd_dist)
+        res = res.at[j,i].set(fd_dist)
+        return res
 
     def coord_encode(self, tx):
         if len(tx.shape)>1:
@@ -142,8 +157,6 @@ class ROMA(eqx.Module):
             z,s = self.embed_pool(x, adj, w, i, key)
             s = self.log(s)
             s = jax.vmap(self.ln_pool[i])(s)
-            #S[i] = jax.nn.softmax(s, axis=0)
-            #sr = jnp.sqrt(S[i])
             sr = s/jnp.linalg.norm(s, axis=0, keepdims=True)
             S[i] = sr**2
             m,n = S[i].shape
@@ -156,7 +169,8 @@ class ROMA(eqx.Module):
             _entr = lambda x: (jax.scipy.special.entr(x)*jnp.e)
             loss_pool = loss_pool.at[0].add( self.w_pool[0] * _entr(S[i]).mean())
             loss_pool = loss_pool.at[1].add( self.w_pool[1] * self.entr[0](A[i+1]).mean())
-            loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', sr, sr)).mean())
+            loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - self.fermi_dirac_lp(x)).mean())
+            #loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', sr, sr)).mean())
             key = jr.split(key)[0]
 
         if mode == 'train':
