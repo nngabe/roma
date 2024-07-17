@@ -84,19 +84,21 @@ class ROMA(eqx.Module):
             zeta = 2. / jnp.log(d) if args.zeta<1e-6 else args.zeta
             _clip = lambda x: jax.numpy.clip(x, 1e-10, 1.)
             self.entr[i] = lambda x: (-1. * jnp.e * _clip(x)**zeta * jnp.log( _clip(x)**zeta + 1e-10))**self.alpha
-        self.r_fd = jnp.array(1.)
-        self.t_fd = jnp.array(.5)        
+        self.r_fd = jnp.array([.1])
+        self.t_fd = jnp.array([.1])
 
     def fermi_dirac_lp(self, x):
         x = self.exp(x)
-        fd = lambda dist: 1. / ( jnp.exp( (dist - self.r_fd)/self.t_fd ) + 1.)
         res = jnp.zeros((self.batch_size, self.batch_size))
         i,j = jnp.triu_indices(self.batch_size)
         x_i, x_j = x[i], x[j]
         d2 = jax.vmap(self.manifold.sqdist, in_axes=(0,0,None))(x_i, x_j, self.c)
-        fd_dist = jax.vmap(fd)(d2)
-        res = res.at[i,j].set(fd_dist)
-        res = res.at[j,i].set(fd_dist)
+        #dist = jnp.sqrt(d2)
+        a = (d2 - self.r_fd)/self.t_fd
+        #a = a.clip(20.) 
+        fd = jax.nn.sigmoid(-a) 
+        res = res.at[i,j].add(fd)
+        res = res.at[j,i].add(fd)
         return res
 
     def coord_encode(self, tx):

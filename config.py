@@ -45,7 +45,7 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+8, 'weight for gpde loss.'),
-        'w_ms': (1e-4, 'weight for assignment matrix entropy loss.'),
+        'w_ms': (1e-2, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'which weight config for S entropy, A entropy, and LP respectively.'),
         'zeta': (.5, 'power for entropy rescaling'),
         'F_max': (1., 'max value of convective term'),
@@ -176,9 +176,9 @@ def configure(args):
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1., 1e-12, 1e-3] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-12, 1e-1] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
-        args.w_pool = [1., 1e-12, 1e-2]
+        args.w_pool = [1., 1e-12, 1e-12]
     elif args.w_pool == 2:
         args.w_pool = [1., 1e-2, 1/10]
     elif args.w_pool == 3:
