@@ -5,10 +5,10 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (5e-6, 'learning rate'),
+        'lr': (4e-5, 'learning rate'),
         'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
-        'steps': (20000, 'number of epochs to train for'),
+        'steps': (100000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -45,7 +45,7 @@ config_args = {
         'w_data': (1e+0, 'weight for data loss.'),
         'w_pde': (1e+0, 'weight for pde loss.'),
         'w_gpde': (1e+8, 'weight for gpde loss.'),
-        'w_ms': (1e-2, 'weight for assignment matrix entropy loss.'),
+        'w_ms': (1e+0, 'weight for assignment matrix entropy loss.'),
         'w_pool': (0, 'which weight config for S entropy, A entropy, and LP respectively.'),
         'zeta': (.5, 'power for entropy rescaling'),
         'F_max': (1., 'max value of convective term'),
@@ -121,6 +121,8 @@ config_args = {
         'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
         'c': (1/8, 'hyperbolic radius, set to None for trainable curvature'),
+        'r': (20., 'fermi dirac chemical potential'),
+        't': (2., 'fermi dirac temperature'),
         'edge_conv': ('mlp', 'use edge convolution or not'),
         'agg': ('multi', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
@@ -176,9 +178,9 @@ def configure(args):
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1., 1e-12, 1e-1] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-12, 1.] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
-        args.w_pool = [1., 1e-12, 1e-12]
+        args.w_pool = [1., 1e-12, 1e+2]
     elif args.w_pool == 2:
         args.w_pool = [1., 1e-2, 1/10]
     elif args.w_pool == 3:

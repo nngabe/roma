@@ -43,10 +43,8 @@ class ROMA(eqx.Module):
     eps_loss: jnp.float32 = eqx.field(static=True)
     w_l: jnp.float32 = eqx.field(static=True)
     func_pos_emb: bool
-    entr: Dict[int,Callable] = eqx.field(static=True)
-    alpha: jnp.float32 = eqx.field(static=True)
-    r_fd: jnp.array
-    t_fd: jnp.array
+    r: jnp.array 
+    t: jnp.array 
 
     def __init__(self, args):
         super(ROMA, self).__init__()
@@ -78,14 +76,8 @@ class ROMA(eqx.Module):
         self.eps_loss = 1e-6
         self.w_l = 1.
         self.func_pos_emb = args.func_pos_emb
-        self.entr = {}
-        self.alpha = 2.
-        for i,d in enumerate(self.pool_dims):
-            zeta = 2. / jnp.log(d) if args.zeta<1e-6 else args.zeta
-            _clip = lambda x: jax.numpy.clip(x, 1e-10, 1.)
-            self.entr[i] = lambda x: (-1. * jnp.e * _clip(x)**zeta * jnp.log( _clip(x)**zeta + 1e-10))**self.alpha
-        self.r_fd = jnp.array([.1])
-        self.t_fd = jnp.array([.1])
+        self.r = jnp.array([args.r])
+        self.t = jnp.array([args.t])
 
     def fermi_dirac_lp(self, x):
         x = self.exp(x)
@@ -93,9 +85,7 @@ class ROMA(eqx.Module):
         i,j = jnp.triu_indices(self.batch_size)
         x_i, x_j = x[i], x[j]
         d2 = jax.vmap(self.manifold.sqdist, in_axes=(0,0,None))(x_i, x_j, self.c)
-        #dist = jnp.sqrt(d2)
-        a = (d2 - self.r_fd)/self.t_fd
-        #a = a.clip(20.) 
+        a = (d2 - self.r)/self.t
         fd = jax.nn.sigmoid(-a) 
         res = res.at[i,j].add(fd)
         res = res.at[j,i].add(fd)
@@ -131,19 +121,19 @@ class ROMA(eqx.Module):
         return y
 
     def encode(self, x, adj, key):
-        s,pe = x[:,:self.kappa], x[:,self.kappa:]
+        u,pe = x[:,:self.kappa], x[:,self.kappa:]
         pe = jax.vmap(self.embed_pe)(pe)
-        x = jnp.concatenate([s,pe], axis=-1)
+        x = jnp.concatenate([u,pe], axis=-1)
         x = self.encoder(x, adj, key)
         return x
 
     def embed_pool(self, z, adj, w, i, key):
         keys = jr.split(key,4)
-        s = z[:,:self.kappa]
+        u = z[:,:self.kappa]
         zi = z[:,self.kappa:]
         ze = self.pool.embed[i](zi, adj, keys[0], w)
         S = self.pool[i](zi, adj, keys[1], w)
-        z = jnp.concatenate([s,ze], axis=-1)
+        z = jnp.concatenate([u,ze], axis=-1)
         return z,S
 
     def renorm(self, x, adj, y, key, mode='train'):
@@ -156,8 +146,9 @@ class ROMA(eqx.Module):
         A[0] = jnp.zeros(x.shape[:1]*2).at[adj[0],adj[1]].set(1.)
         loss_pool = jnp.array([0.,0.,0.])
         for i in self.pool.keys():
+            link = self.fermi_dirac_lp(x)
             z,s = self.embed_pool(x, adj, w, i, key)
-            s = self.log(s)
+            #s = self.log(s)
             s = jax.vmap(self.ln_pool[i])(s)
             sr = s/jnp.linalg.norm(s, axis=0, keepdims=True)
             S[i] = sr**2
@@ -170,8 +161,8 @@ class ROMA(eqx.Module):
             y_r = jnp.concatenate([y_r, y], axis=-1)
             _entr = lambda x: (jax.scipy.special.entr(x)*jnp.e)
             loss_pool = loss_pool.at[0].add( self.w_pool[0] * _entr(S[i]).mean())
-            loss_pool = loss_pool.at[1].add( self.w_pool[1] * self.entr[0](A[i+1]).mean())
-            loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - self.fermi_dirac_lp(x)).mean())
+            loss_pool = loss_pool.at[1].add( self.w_pool[1] * _entr(A[i+1]).mean())
+            loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - link).mean())
             #loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', sr, sr)).mean())
             key = jr.split(key)[0]
 
