@@ -91,6 +91,25 @@ class ROMA(eqx.Module):
         res = res.at[j,i].add(fd)
         return res
 
+    def fermi_dirac_loss(self, x, A, weight = 'equal'):
+        x = self.exp(x[:,self.kappa:])
+        i,j = jnp.triu_indices(self.batch_size)
+        adj = A[i,j] 
+        x_i, x_j = x[i], x[j]
+        d2 = jax.vmap(self.manifold.sqdist, in_axes=(0,0,None))(x_i, x_j, self.c)
+        d2 = d2 / x_i.shape[1]
+        a = (d2 - jnp.exp(self.r)) / (jnp.exp(self.t) + 1e-5)
+        fd = jax.nn.sigmoid(-a) 
+        L2 = jnp.square(adj - fd)
+        m0, m1 = adj.astype(jnp.int32)^1, adj.astype(jnp.int32)
+        if weight == 'equal':
+            loss = ( jnp.square(L2*m0).sum()/m0.sum() + jnp.square(L2*m1).sum()/m1.sum()) / 2.
+        if weight == 'sqrt':
+            w0 = jnp.sqrt(m0.sum())
+            w1 = jnp.sqrt(m1.sum())
+            loss = (w0 * jnp.square(L2*m0).sum()/m0.sum() + w1 * jnp.square(L2*m1).sum()/m1.sum()) / (w0+w1)
+        return loss
+
     def coord_encode(self, tx):
         if len(tx.shape)>1:
             return jax.vmap(self.coord_encode)(tx)        
@@ -146,7 +165,7 @@ class ROMA(eqx.Module):
         A[0] = jnp.zeros(x.shape[:1]*2).at[adj[0],adj[1]].set(1.)
         loss_pool = jnp.array([0.,0.,0.])
         for i in self.pool.keys():
-            link = self.fermi_dirac_lp(x)
+            loss_lp = self.fermi_dirac_loss(x, A[i])
             z,s = self.embed_pool(x, adj, w, i, key)
             #s = self.log(s)
             s = jax.vmap(self.ln_pool[i])(s)
@@ -162,7 +181,7 @@ class ROMA(eqx.Module):
             _entr = lambda x: (jax.scipy.special.entr(x)*jnp.e)
             loss_pool = loss_pool.at[0].add( self.w_pool[0] * _entr(S[i]).mean())
             loss_pool = loss_pool.at[1].add( self.w_pool[1] * _entr(A[i+1]).mean())
-            loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - link).mean())
+            loss_pool = loss_pool.at[2].add( self.w_pool[2] * loss_lp)
             #loss_pool = loss_pool.at[2].add( self.w_pool[2] * jnp.square(A[i] - jnp.einsum('ij,kj -> ik', sr, sr)).mean())
             key = jr.split(key)[0]
 

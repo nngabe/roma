@@ -5,10 +5,10 @@ from nn.utils.train_utils import add_flags_from_config
 from lib.graph_utils import sup_power_of_two
 config_args = {
     'training_config': {
-        'lr': (4e-5, 'learning rate'),
+        'lr': (2e-5, 'learning rate'),
         'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
-        'steps': (100000, 'number of epochs to train for'),
+        'steps': (40000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -56,8 +56,8 @@ config_args = {
         # which layers use time encodings and what dim should encodings be
         'x_dim': (3, 'dimension of differentiable coordinates for PDE'),
         'coord_dim': (2048, 'dimension of (t,x) embedding'), 
-        't_var': (1e-5, 'variance of time embedding in trunk net'),
-        'x_var': (1e-5, 'variance of space embedding in trunk net'),
+        't_var': (1e-4, 'variance of time embedding in trunk net'),
+        'x_var': (1e-4, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
         'pe_dim': (256, 'dimension of each positional encoding (node2vec,LE,...)'),
@@ -121,8 +121,8 @@ config_args = {
         'cat': (True, 'whether to concatenate all intermediate layers to final layer.'),
         'manifold': ('PoincareBall', 'which manifold to use, can be any of [Euclidean, Hyperboloid, PoincareBall]'),
         'c': (1/8, 'hyperbolic radius, set to None for trainable curvature'),
-        'r': (20., 'fermi dirac chemical potential'),
-        't': (2., 'fermi dirac temperature'),
+        'r': (.5, 'fermi dirac chemical potential'),
+        't': (3., 'fermi dirac temperature'),
         'edge_conv': ('mlp', 'use edge convolution or not'),
         'agg': ('multi', 'aggregation function to use'),
         'num_gat_heads': (6, 'number of attention heads for graph attention networks, must be a divisor dim'),
@@ -169,18 +169,20 @@ def configure(args):
         args.pos_emb_var = [args.pos_emb_var, 1.]
         args.level_emb_var = [args.level_emb_var]
     elif args.dual_pos_emb == 2:
-        a = 1/2
-        args.pos_emb_var = [a * args.pos_emb_var, a * 1.]
+        args.pos_emb_var = [args.pos_emb_var, .5]
         args.level_emb_var = [args.level_emb_var]
     elif args.dual_pos_emb == 3:
-        args.pos_emb_var = [0., 1/2] 
+        args.pos_emb_var = [args.pos_emb_var, 0.]
         args.level_emb_var = [args.level_emb_var]
+    elif args.dual_pos_emb == 4:
+        args.pos_emb_var = [0., 0.]
+        args.level_emb_var = [0.]
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1., 1e-12, 1.] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-6, 1e+1] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
-        args.w_pool = [1., 1e-12, 1e+2]
+        args.w_pool = [1e-1, 1e-12, 1e+1]
     elif args.w_pool == 2:
         args.w_pool = [1., 1e-2, 1/10]
     elif args.w_pool == 3:

@@ -38,7 +38,7 @@ class GraphNet(eqx.Module):
         super(GraphNet, self).__init__()
         self.c = args.c
         self.res = bool(args.res) 
-        self.cat = bool(args.cat) if module=='enc' else False
+        self.cat = True if module=='enc' else False
         self.norm = bool(args.use_layer_norm)
         self.pe_dim = args.pe_dim
         self.kappa = args.kappa
@@ -62,7 +62,6 @@ class GraphNet(eqx.Module):
         for conv,lin,norm in zip(self.layers, self.lin, self.layer_norm):
             h,_ = conv(x, adj, key, w)
             h = self.log(h)
-            #h = self.dropout(h, key=key)
             if self.res:
                 x = jax.vmap(lin)(self.log(x)) + h
             if self.norm:
@@ -71,12 +70,9 @@ class GraphNet(eqx.Module):
             x = self.exp(x)
             key = jax.random.split(key)[0]
         if self.cat:
-            res = jnp.concatenate([x_i[0], x_i[-1]], axis=-1)
+            res = jnp.concatenate([x_i[0], x_i[-1]], axis=-1) 
         else:
-            #jax.debug.print('x_i = {}', [x.shape for x in x_i])
             res = self.log(x)
-        if self.censor:
-            res = res.at[:,self.kappa:].mul(0.)
         return res
         
 
@@ -226,7 +222,7 @@ class Res(eqx.Module):
             args, dims, _, _ = get_dim_act(args,module) 
             self.num_layers = len(dims)
         else: 
-            hidden_dim = args.dec_width if args.branch_net=='Res' else args.dec_width * 2 
+            hidden_dim = args.dec_width * 2 #if args.branch_net=='Res' else args.dec_width * 2 
             dims = [in_dim] + args.num_layers * [hidden_dim] + [out_dim]
             self.num_layers = len(dims)
         

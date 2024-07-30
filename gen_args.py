@@ -2,6 +2,10 @@ import itertools
 import sys
 
 batch = sys.argv[1] if len(sys.argv)>1 else ''
+ablation = sys.argv[2] if len(sys.argv)>2 else False
+opt1 = int(sys.argv[3]) if len(sys.argv)>3 else 1
+opt2 = int(sys.argv[4]) if len(sys.argv)>4 else 1
+
 print(batch)
 OPTS = []
 
@@ -18,7 +22,9 @@ if batch == '':
 
 elif batch == 'test':
     OUT_FILE = 'args/test.txt'
-    opts = {'path': [1716416941], 'epochs': [200000]} # 38k 
+    opts = {'path': [1718041958], 'epochs': [200000]} # 4k
+    OPTS.append(opts)
+    opts = {'path': [1718042027], 'epochs': [200000]} # 38k 
     OPTS.append(opts)
     opts = {'path': [1716237798], 'epochs': [200000]} # 1M 
     OPTS.append(opts)
@@ -29,27 +35,29 @@ elif batch == 'test':
     opts = {'path': [1715275273]} # 29k, Burgers 
     OPTS.append(opts)
 
-elif batch.isnumeric():
+elif batch.isnumeric() and ablation=='ED':
     opt_ = {'path': [batch]}
-    name = '_'.join([i[0]+str(i[1][0])[-3:] for i in opt_.items()])
+    name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
     OUT_FILE = f'args/ab_{name}.txt'
-   
-    # default ROMA
+
+    # ROMA
     opts = opt_ 
     OPTS.append(opts)
+ 
+    # DON
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0]} 
+    OPTS.append(opts)
     
-    # DeepONet 
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0], 'dec_width': [2048]}
+    # DON-MP
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [1], 'nonlinear': [0], 
+                   'branch_net': ['Res'], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'edge_conv': [0]}
     OPTS.append(opts)
     
     # NOMAD
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [1], 'branch_net': ['Res'], 'pe_embed_dim': [0], 'dec_width': [2048]}
-    OPTS.append(opts)
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [1], 'nonlinear': [1],
+                   'branch_net': ['Res'], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'edge_conv': [0]}
+    OPTS.append(opts) 
    
-    # MLP decoder
-    opts = opt_ | {'decoder': ['Res'], 'dec_width': [2048]}
-    OPTS.append(opts)
-    
     # no renorm 
     opts = opt_ | {'pool_steps': [0]}
     OPTS.append(opts)
@@ -57,15 +65,37 @@ elif batch.isnumeric():
     # no PDE/gPDE
     opts = opt_ | {'w_pde':[0.], 'w_gpde': [0.]}
     OPTS.append(opts)
-    
-   
-    # no Transformer
-    opts = opt_ | {'branch_net': ['Res'], 'dec_width': [1536]}
-    OPTS.append(opts)
-   
 
+elif batch.isnumeric() and ablation == 'PE':
+    opt_ = {'path': [batch], 'steps': [30000], 'func_pos_emb': [opt1], 'dual_pos_emb': [opt2]}
+    OUT_FILE = f'args/pe_{opt_["path"][0]}_dual{opt_["func_pos_emb"][0]}.{opt_["dual_pos_emb"][0]}.txt'
+
+    opts = opt_ | {'pos_emb_var': [0., .2, .4, .6, .8, 1.]}
+    OPTS.append(opts)
+ 
+elif batch.isnumeric():
+    opt_ = {'path': [batch], 'eta_var': [0.01]}
+    name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
+    OUT_FILE = f'args/base_{name}.txt'
+   
+    # ROMA
+    opts = opt_ 
+    OPTS.append(opts)
+ 
+    # DON
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0]} 
+    OPTS.append(opts)
     
+    # DON-MP
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [1], 'nonlinear': [0], 
+                   'branch_net': ['Res'], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'edge_conv': [1]}
+    OPTS.append(opts)
     
+    # NOMAD
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [1], 'nonlinear': [1],
+                   'branch_net': ['Res'], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'edge_conv': [1]}
+    OPTS.append(opts) 
+
 
 elif batch == 'ablations_extra':
     OUT_FILE = 'args/ablations.txt'

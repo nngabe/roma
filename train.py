@@ -212,15 +212,16 @@ if __name__ == '__main__':
     steps = args.steps
     num_cycles = args.num_cycles
     cycle_length = args.steps//num_cycles
-    warmup_steps = min(10000, steps/2)
-    decay_steps = steps - warmup_steps
-    lr_min = 1e-8 #* (10000 / decay_steps)   
+    warmup_steps = min(10000, steps/4)
+    decay_steps = steps - 2  * warmup_steps
+    lr_min = 2e-7 #* (10000 / decay_steps)   
  
     schedule = optax.join_schedules(schedules=
     [
       optax.linear_schedule(0., lr, warmup_steps),
-      optax.linear_schedule(lr, lr_min, steps - warmup_steps)
-    ] , boundaries=[warmup_steps])
+      optax.linear_schedule(lr, lr_min, decay_steps),
+      optax.linear_schedule(lr_min, lr_min/10., warmup_steps),
+    ] , boundaries=[warmup_steps, decay_steps+warmup_steps])
 
     params = {'learning_rate': schedule, 'weight_decay': args.weight_decay, 'b1': args.b1, 'b2': args.b2, 'eps': args.epsilon}
     optimizer = getattr(optax, args.optim)(**params)
