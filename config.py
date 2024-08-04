@@ -8,7 +8,7 @@ config_args = {
         'lr': (2e-5, 'learning rate'),
         'dropout': (0.0, 'dropout probability'),
         'dropout_op': (0, 'dropout setting for operator networks, see below.'),
-        'steps': (40000, 'number of epochs to train for'),
+        'steps': (50000, 'number of epochs to train for'),
         'num_cycles': (1, 'number of warmup/cosine decay cycles'),
         'optim': ('adamw', 'optax class name of optimizer'),
         'slaw': (False, 'whether to use scaled loss approximate weighting (SLAW)'),
@@ -60,8 +60,8 @@ config_args = {
         'x_var': (1e-4, 'variance of space embedding in trunk net'),
 
         # positional encoding arguments
-        'pe_dim': (256, 'dimension of each positional encoding (node2vec,LE,...)'),
-        'pe_embed_dim': (64, 'dimension of pe linear embedding'),
+        'pe_dim': (512, 'dimension of each positional encoding (node2vec,LE,...)'),
+        'pe_embed_dim': (96, 'dimension of pe linear embedding'),
         'le_size': (-1, 'size of laplacian eigenvector positional encoding'),
         'rw_size': (-1, 'size of random walk (diffusion) positional encoding'),
         'n2v_size': (-1, 'size of node2vec positional encoding'),
@@ -177,10 +177,14 @@ def configure(args):
     elif args.dual_pos_emb == 4:
         args.pos_emb_var = [0., 0.]
         args.level_emb_var = [0.]
+    elif args.dual_pos_emb == 5:
+        args.pos_emb_var = [1., 1.]
+        args.level_emb_var = [0.]
+
 
     # multiscale loss weights
     if args.w_pool == 0:
-        args.w_pool = [1., 1e-6, 1e+1] # = w[H_S, H_A, LP]
+        args.w_pool = [1., 1e-3, 1e+2] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
         args.w_pool = [1e-1, 1e-12, 1e+1]
     elif args.w_pool == 2:

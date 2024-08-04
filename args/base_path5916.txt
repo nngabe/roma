@@ -1,0 +1,4 @@
+--path 1722285916 
+--path 1722285916 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 0 --nonlinear 0 --branch_net Res --pe_embed_dim 0 
+--path 1722285916 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 1 --nonlinear 0 --branch_net Transformer --pe_embed_dim 0 --manifold Euclidean --edge_conv 1 --func_pos_emb 0 --dual_pos_emb 5 
+--path 1722285916 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 1 --nonlinear 1 --branch_net Transformer --pe_embed_dim 0 --manifold Euclidean --edge_conv 1 --func_pos_emb 0 --dual_pos_emb 5 
