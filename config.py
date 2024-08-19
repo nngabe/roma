@@ -175,7 +175,7 @@ def configure(args):
         args.pos_emb_var = [args.pos_emb_var, 0.]
         args.level_emb_var = [args.level_emb_var]
     elif args.dual_pos_emb == 4:
-        args.pos_emb_var = [0., 0.]
+        args.pos_emb_var = [args.pos_emb_var, 1.]
         args.level_emb_var = [0.]
     elif args.dual_pos_emb == 5:
         args.pos_emb_var = [1., 1.]

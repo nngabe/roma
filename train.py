@@ -134,6 +134,8 @@ if __name__ == '__main__':
             print(f'  pde: {args.pde}/{args.decoder}{args.pde_dims}')
 
     param_count = sum(x.size for x in jax.tree_util.tree_leaves(eqx.filter(model, eqx.is_inexact_array)))
+    if args.w_pde*args.w_gpde < 1e-8: 
+        param_count -= sum(x.size for x in jax.tree_util.tree_leaves(eqx.filter(model.pde, eqx.is_inexact_array))) 
     pc = utils.round_to_nearest_thousands(param_count)
     print(f'  NUM_PARAMS = {pc}\n\n')
      
