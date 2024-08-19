@@ -246,7 +246,7 @@ class KAN(eqx.Module):
                 f = lambda x: layer(x,key) + res(x)
             else:
                 f = lambda x: layer(x,key)
-            x = f(x)
+            x,_ = f(x)
             key = jr.split(key)[0]
         return x
 
