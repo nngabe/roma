@@ -5,6 +5,7 @@ import numpy as np
 
 import jax
 import jax.numpy as jnp
+import jax.random as jr
 from jax.numpy import concatenate as cat
 import jax.tree_util as tree
 
