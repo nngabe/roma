@@ -16,6 +16,7 @@ from equinox.nn import Dropout as dropout
 import jraph
 
 prng_key = jax.random.PRNGKey(0)
+prng = lambda i=0: jr.PRNGKey(i)
 act_dict = {
             'relu': jax.nn.relu, 
             'silu': jax.nn.silu, 
@@ -159,7 +160,7 @@ class KANLayer(eqx.Module):
     grid_e: float
     grid: jnp.array = eqx.field(static=True)
     
-    def __init__(self, in_dim, out_dim, k=3, const_spl = False, const_res = False, residual = jax.nn.swish, noise_std = 0.1, grid_e = 0.15):
+    def __init__(self, in_dim, out_dim, k=3, const_spl = False, const_res = False, residual = jax.nn.swish, noise_std = 0.1, grid_e = 0.15, key=prng(0)):
         super(KANLayer, self).__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
