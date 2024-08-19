@@ -183,7 +183,7 @@ class KANLayer(eqx.Module):
 
         self.grid = grid #self.variable('state', 'grid', lambda: grid)
         #self.c_basis = self.param('c_basis', initializers.normal(stddev=self.noise_std), (self.in_dim * self.out_dim, self.grid.value.shape[1]-1-self.k))
-        self.c_basis = self.noise_std * jr.normal(key, self.in_dim * self.out_dim, self.grid.value.shape[1]-1-self.k)
+        self.c_basis = self.noise_std * jr.normal(key, self.in_dim * self.out_dim, self.grid.shape[1]-1-self.k)
         
         if isinstance(self.const_spl, float):
             self.c_spl = jnp.ones(self.in_dim*self.out_dim) * self.const_spl
