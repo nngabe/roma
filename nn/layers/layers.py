@@ -157,7 +157,7 @@ class KANLayer(eqx.Module):
     k: int
     const_spl: float or bool
     const_res: float or bool
-    residual: nn.Module
+    residual: eqx.Module
     noise_std: float
     grid_e: float
     
