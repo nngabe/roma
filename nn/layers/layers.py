@@ -163,6 +163,15 @@ class KANLayer(eqx.Module):
     
     def __init__(self, in_dim, out_dim, k=3, const_spl = False, const_res = False, residual = jax.nn.swish, noise_std = 0.1, grid_e = 0.15):
         super(KANLayer, self).__init__()
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.k = k
+        self.const_spl = const_spl
+        self.const_res = const_res
+        self.residual = residual
+        self.noise_std = noise_std
+        self.grid_e = grid_e
+
         init_G = 3
         init_knot = (-1, 1)
 
