@@ -239,7 +239,7 @@ class KAN(eqx.Module):
         self.layers = eqx.nn.Sequential(self.layers)
         self.lin = eqx.nn.Sequential(self.lin)    
 
-    def __call__(self, x, key, pe=None):
+    def __call__(self, x, key=prng(0), pe=None):
 
         for res,layer in zip(self.lin,self.layers):
             if self.res:
