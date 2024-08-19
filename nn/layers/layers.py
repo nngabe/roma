@@ -290,7 +290,7 @@ class KANLayer(eqx.Module):
         y_reshaped = jnp.reshape(y, (batch, self.out_dim, self.in_dim))
         y = (1.0/self.in_dim)*jnp.sum(y_reshaped, axis=2)
 
-        grid_reshaped = self.grid.value.reshape(self.out_dim, self.in_dim, -1)
+        grid_reshaped = self.grid.reshape(self.out_dim, self.in_dim, -1)
         input_norm = grid_reshaped[:, :, -1] - grid_reshaped[:, :, 0] + 1e-5
         spl_reshaped = jnp.reshape(spl, (batch, self.out_dim, self.in_dim))
         spl_reg = (jnp.mean(jnp.abs(spl_reshaped), axis=0))/input_norm
