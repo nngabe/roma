@@ -138,11 +138,7 @@ def solve_full_lstsq(A_full, B_full):
 class KANLayer(eqx.Module):
     """
     KANLayer class.
-
     Args:
-    -----------
-        in_dim (int): number of layer's incoming nodes. Default: 2
-        out_dim (int): number of layer's outgoing nodes. Default: 5
         k (int): the order of the spline basis functions. Default: 3
         const_spl (float/bool): coefficient of the spline function in the overall activation. If set to False, then it is trainable per activation. Default: False
         const_res (float/bool): coefficient of the residual function in the overall activation. If set to False, then it is trainable per activation. Default: False
@@ -182,7 +178,7 @@ class KANLayer(eqx.Module):
         grid = jnp.expand_dims(grid, axis=0)
         grid = jnp.tile(grid, (self.in_dim*self.out_dim, 1))
 
-        self.grid = self.variable('state', 'grid', lambda: grid)
+        self.grid = grid #self.variable('state', 'grid', lambda: grid)
         #self.c_basis = self.param('c_basis', initializers.normal(stddev=self.noise_std), (self.in_dim * self.out_dim, self.grid.value.shape[1]-1-self.k))
         self.c_basis = self.noise_std * jr.normal(key, self.in_dim * self.out_dim, self.grid.value.shape[1]-1-self.k)
         
