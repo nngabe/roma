@@ -153,8 +153,8 @@ class KANLayer(eqx.Module):
     in_dim: int
     out_dim: int
     k: int
-    const_spl: float or bool
-    const_res: float or bool
+    c_spl: float or bool
+    c_res: float or bool
     residual: eqx.Module
     noise_std: float
     grid_e: float
@@ -166,8 +166,8 @@ class KANLayer(eqx.Module):
         self.in_dim = in_dim
         self.out_dim = out_dim
         self.k = k
-        self.const_spl = const_spl
-        self.const_res = const_res
+        #self.const_spl = const_spl
+        #self.const_res = const_res
         self.residual = residual
         self.noise_std = noise_std
         self.grid_e = grid_e
@@ -186,15 +186,15 @@ class KANLayer(eqx.Module):
         #self.c_basis = self.param('c_basis', initializers.normal(stddev=self.noise_std), (self.in_dim * self.out_dim, self.grid.value.shape[1]-1-self.k))
         self.c_basis = self.noise_std * jr.normal(key, (self.in_dim * self.out_dim, self.grid.shape[1]-1-self.k))
         
-        if isinstance(self.const_spl, float):
+        if isinstance(const_spl, float):
             self.c_spl = jnp.ones(self.in_dim*self.out_dim) * self.const_spl
-        elif self.const_spl is False:
+        elif const_spl is False:
             #self.c_spl = self.param('c_spl', initializers.constant(1.0), (self.in_dim * self.out_dim,))
             self.c_spl = jnp.ones(self.in_dim * self.out_dim)
 
-        if isinstance(self.const_res, float):
+        if isinstance(const_res, float):
             self.c_res = jnp.ones(self.in_dim * self.out_dim) * self.const_res
-        elif self.const_res is False:
+        elif const_res is False:
             #self.c_res = self.param('c_res', initializers.constant(1.0), (self.in_dim * self.out_dim,))
             self.c_res = jnp.ones(self.in_dim * self.out_dim) #* self.const_res
 
