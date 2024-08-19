@@ -265,7 +265,7 @@ class KANLayer(eqx.Module):
         return cj
 
 
-    def __call__(self, x):
+    def __call__(self, x, key=prng(0)):
         """
         Args:
             x (jnp.array): inputs:  shape (batch, in_dim)

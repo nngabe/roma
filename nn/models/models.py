@@ -3,7 +3,7 @@ import copy
 
 import manifolds
 import layers.hyp_layers as hyp_layers
-from layers.layers import GCNConv, GATConv, Linear, get_dim_act
+from layers.layers import GCNConv, Linear, KANLayer, get_dim_act
 import utils.math_utils as pmath
 import lib.function_spaces
 
@@ -210,6 +210,47 @@ class Transformer(eqx.Module):
             return x,attn 
         else: 
             return x
+
+class KAN(eqx.Module):
+    num_layers: int
+    res: bool
+    layers: eqx.nn.Sequential 
+    lin: eqx.nn.Sequential = eqx.field(static=True)
+
+    def __init__(self, args=None, in_dim=-1, out_dim=-1, res=False, norm=False, module=None, shared=None, key=prng(4)):
+        if module:
+            args, dims, _, _ = get_dim_act(args,module) 
+            self.num_layers = len(dims)
+        else: 
+            hidden_dim = args.dec_width * 2 #if args.branch_net=='Res' else args.dec_width * 2 
+            dims = [in_dim] + args.num_layers * [hidden_dim] + [out_dim]
+            self.num_layers = len(dims)
+        
+        keys = jr.split(key, args.dec_depth + 2)
+        self.res = res
+        dropout_rate = args.dropout_trunk
+        
+        self.layers = [KANLayer(dims[i], dims[i+1], dropout_rate=dropout_rate, key=keys[i], norm=norm) for i in range(self.num_layers-1)]
+        if args.lin_skip: 
+            self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers-1)]
+        else: 
+            self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) if dims[i]!=dims[i+1] else (lambda x: x) for i in range(self.num_layers-1)]
+        self.layers = eqx.nn.Sequential(self.layers)
+        self.lin = eqx.nn.Sequential(self.lin)    
+
+    def __call__(self, x, key, pe=None):
+
+        for res,layer in zip(self.lin,self.layers):
+            if self.res:
+                f = lambda x: layer(x,key) + res(x)
+            else:
+                f = lambda x: layer(x,key)
+            x = f(x)
+            key = jr.split(key)[0]
+        return x
+
+
+    
 
 class Res(eqx.Module):
     num_layers: int
