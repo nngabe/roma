@@ -204,7 +204,7 @@ class KANLayer(eqx.Module):
         x_ext = jnp.einsum('ij,k->ikj', x, jnp.ones(self.out_dim,)).reshape((batch, self.in_dim * self.out_dim))
         x_ext = jnp.transpose(x_ext, (1, 0))
         
-        grid = self.grid.value
+        grid = self.grid
         k = self.k
         bases = get_spline_basis(x_ext, grid, k)
         
