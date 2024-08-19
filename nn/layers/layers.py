@@ -135,7 +135,7 @@ def solve_full_lstsq(A_full, B_full):
 
     return full_solution
 
-class KANLayer(nn.Module):
+class KANLayer(eqx.Module):
     """
     KANLayer class.
 
@@ -161,7 +161,7 @@ class KANLayer(nn.Module):
     noise_std: float
     grid_e: float
     
-    def __init__(self, in_dim, out_dim, k=3, const_spl = False, const_res = False, residual = nn.swish, noise_std = 0.1, grid_e = 0.15):
+    def __init__(self, in_dim, out_dim, k=3, const_spl = False, const_res = False, residual = jax.nn.swish, noise_std = 0.1, grid_e = 0.15):
         super(KANLayer, self).__init__()
         init_G = 3
         init_knot = (-1, 1)
