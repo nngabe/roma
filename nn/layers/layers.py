@@ -156,7 +156,7 @@ class KANLayer(eqx.Module):
     residual: eqx.Module
     noise_std: float
     grid_e: float
-    grid: jax.array = eqx.field(static=True)
+    grid: jnp.array = eqx.field(static=True)
     
     def __init__(self, in_dim, out_dim, k=3, const_spl = False, const_res = False, residual = jax.nn.swish, noise_std = 0.1, grid_e = 0.15):
         super(KANLayer, self).__init__()
