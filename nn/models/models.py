@@ -222,8 +222,8 @@ class KAN(eqx.Module):
             args, dims, _, _ = get_dim_act(args,module) 
             self.num_layers = len(dims)
         else: 
-            dec_width = args.dec_width if args else out_dim//2
-            num_layers = args.num_layers if args else 4
+            dec_width = args.dec_width if args != None else out_dim//2
+            num_layers = args.num_layers if args != None else 4
             hidden_dim = dec_width * 2 #if args.branch_net=='Res' else args.dec_width * 2 
             dims = [in_dim] + num_layers * [hidden_dim] + [out_dim]
             self.num_layers = len(dims)
@@ -232,7 +232,7 @@ class KAN(eqx.Module):
         self.res = res
         
         self.layers = [KANLayer(dims[i], dims[i+1]) for i in range(self.num_layers-1)]
-        if args.lin_skip: 
+        if args.res: 
             self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers-1)]
         else: 
             self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) if dims[i]!=dims[i+1] else (lambda x: x) for i in range(self.num_layers-1)]
