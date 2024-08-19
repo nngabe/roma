@@ -232,7 +232,7 @@ class KAN(eqx.Module):
         self.res = res
         
         self.layers = [KANLayer(dims[i], dims[i+1]) for i in range(self.num_layers-1)]
-        if args.res: 
+        if self.res: 
             self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers-1)]
         else: 
             self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) if dims[i]!=dims[i+1] else (lambda x: x) for i in range(self.num_layers-1)]
