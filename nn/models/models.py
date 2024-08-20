@@ -218,13 +218,14 @@ class KAN(eqx.Module):
     lin: eqx.nn.Sequential = eqx.field(static=True)
 
     def __init__(self, args=None, in_dim=-1, out_dim=-1, res=False, norm=False, module=None, shared=None, key=prng(4)):
+        res = False
         if module:
             args, dims, _, _ = get_dim_act(args,module) 
             self.num_layers = len(dims)
         else: 
             dec_width = args.dec_width if args != None else out_dim//2
             num_layers = args.num_layers if args != None else 4
-            hidden_dim = dec_width * 2 #if args.branch_net=='Res' else args.dec_width * 2 
+            hidden_dim = dec_width  #if args.branch_net=='Res' else args.dec_width * 2 
             dims = [in_dim] + num_layers * [hidden_dim] + [out_dim]
             self.num_layers = len(dims)
         
@@ -241,17 +242,16 @@ class KAN(eqx.Module):
 
     def __call__(self, x, key=prng(0), pe=None):
 
+        if len(x.shape) < 2: 
+            x = x.reshape(1,-1)
         for res,layer in zip(self.lin,self.layers):
             if self.res:
-                f = lambda x: layer(x,key) + res(x)
+                f = lambda x: layer(x,key) + res(x.squeeze()).reshape(1,-1)
             else:
                 f = lambda x: layer(x,key)
             x,_ = f(x)
             key = jr.split(key)[0]
-        return x
-
-
-    
+        return x.squeeze()
 
 class Res(eqx.Module):
     num_layers: int

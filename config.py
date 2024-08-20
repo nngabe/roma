@@ -132,7 +132,7 @@ config_args = {
         #'local_agg': (1, 'whether to local tangent space aggregation or not')
     },
     'data_config': {
-        'path': ('1716237798','from which to infer data path'),
+        'path': ('1722285916','from which to infer data path'),
         'log_path': (None, 'snippet from which to infer log/model path.'),
     }
 }
