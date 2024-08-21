@@ -236,7 +236,8 @@ class KAN(eqx.Module):
         if self.res: 
             self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) for i in range(self.num_layers-1)]
         else: 
-            self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) if dims[i]!=dims[i+1] else (lambda x: x) for i in range(self.num_layers-1)]
+            #self.lin = [eqx.nn.Linear(dims[i], dims[i+1], key=keys[i]) if dims[i]!=dims[i+1] else (lambda x: x) for i in range(self.num_layers-1)]
+            self.lin = [(lambda x: x) for i in range(self.num_layers-1)]
         self.layers = eqx.nn.Sequential(self.layers)
         self.lin = eqx.nn.Sequential(self.lin)    
 

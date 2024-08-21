@@ -116,7 +116,7 @@ class GCNConv(eqx.Module):
 from jax import jit
 from functools import partial
 
-@partial(jit, static_argnums=(2,))
+#@partial(jit, static_argnums=(2,))
 def get_spline_basis(x_ext, grid, k=3):
 
     grid = jnp.expand_dims(grid, axis=2)
@@ -153,8 +153,8 @@ class KANLayer(eqx.Module):
     in_dim: int
     out_dim: int
     k: int
-    c_spl: float or bool
-    c_res: float or bool
+    c_spl: jnp.array = eqx.field(static=True)
+    c_res: jnp.array = eqx.field(static=True)
     residual: eqx.Module
     noise_std: float
     grid_e: float
@@ -166,8 +166,6 @@ class KANLayer(eqx.Module):
         self.in_dim = in_dim
         self.out_dim = out_dim
         self.k = k
-        #self.const_spl = const_spl
-        #self.const_res = const_res
         self.residual = residual
         self.noise_std = noise_std
         self.grid_e = grid_e
@@ -198,6 +196,20 @@ class KANLayer(eqx.Module):
             #self.c_res = self.param('c_res', initializers.constant(1.0), (self.in_dim * self.out_dim,))
             self.c_res = jnp.ones(self.in_dim * self.out_dim) #* self.const_res
 
+    def get_spline_basis(self, x_ext, grid, k=3):
+
+        grid = jnp.expand_dims(grid, axis=2)
+        x = jnp.expand_dims(x_ext, axis=1)
+        basis_splines = ((x >= grid[:, :-1]) & (x < grid[:, 1:])).astype(float)
+        
+        for K in range(1, self.k+1):
+            l0,l1 = grid[:, :-(K + 1)], grid[:, K:-1]
+            r0,r1 = grid[:, K + 1:],  grid[:, 1:(-K)]
+            left_term = (x - l0) / (l1 - l0)
+            right_term = (r0 - x) / (r0 - r1)
+            basis_splines = left_term * basis_splines[:, :-1] + right_term * basis_splines[:, 1:]
+
+        return basis_splines
 
     def basis(self, x):
         batch = x.shape[0]
@@ -206,7 +218,7 @@ class KANLayer(eqx.Module):
         
         grid = self.grid
         k = self.k
-        bases = get_spline_basis(x_ext, grid, k)
+        bases = self.get_spline_basis(x_ext, grid, k)
         
         return bases
 

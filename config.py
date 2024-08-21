@@ -93,7 +93,7 @@ config_args = {
         'num_heads': (8, 'number of heads in transformer blocks.'),
         'trunk_res': (True, 'use residual connections in trunk net.'),
         'trunk_norm': (True, 'use layer norm in trunk net.'),
-        'pos_emb_var': (1/4, 'variance of transformer positional embedding at l=0 and l>0, respectively'),
+        'pos_emb_var': (0., 'variance of transformer positional embedding at l=0 and l>0, respectively'),
         'level_emb_var': (1., 'variance of transformer level embedding'),
         'func_pos_emb': (1, 'use functional positional embedding in Transformer'),
         'dual_pos_emb': (1, 'use dual positional embedding'),
