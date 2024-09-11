@@ -22,9 +22,10 @@ from torch_geometric.data import Data
 from torch_geometric.loader import GraphSAINTRandomWalkSampler
 from torch_geometric.transforms import LargestConnectedComponents as LCC
 
-from nn.models.roma import ROMA, loss_train, loss_report, make_step
 from config import parser, configure
 
+# wait to import jax.jit functions. prevents jax preallocation while using torch to compute pe.
+from nn.models.roma import ROMA, loss_train, loss_report, make_step
 from lib import utils
 from lib.graph_utils import get_next_batch, sup_power_of_two, pad_graph, threshold_subgraphs_by_size
 from lib.positional_encoding import pe_path_from, pos_enc
@@ -32,19 +33,21 @@ from lib.positional_encoding import pe_path_from, pos_enc
 #jax.config.update("jax_enable_x64", True)
 prng = lambda i=0: jax.random.PRNGKey(i)
 dim2str = lambda d: '[' + str(d[0])+', ' +str(len(d)-2)+'*'+str(d[1:2])+', ' + str(d[-1]) + ']'
+read_file = lambda path: np.load(path) if path[-3:]=='npy' else pd.read_parquet(path).to_numpy()
+read_file_T = lambda path: np.load(path).T if path[-3:]=='npy' else pd.read_parquet(path).to_numpy().T
 
 if __name__ == '__main__': 
     stamp = str(int(time.time()))
     args = parser.parse_args()
     args = configure(args)    
     
-    args.data_path = glob.glob(f'../data/x*{args.path}*parquet')[0]
+    args.data_path = glob.glob(f'../data/x*{args.path}*')[0]
     args.adj_path = glob.glob(f'../data/edges*{args.path.split("_")[0]}*')[0]
     args.pe_path = pe_path_from(args)
 
     print(f'\n time_stamp = {stamp}')
     print(f'\n data_path: {args.data_path}\n adj_path: {args.adj_path}\n pe_path: {args.pe_path}\n')
-   
+    
     #torch.set_default_device('cpu')
     torch_device = 'cpu' if not torch.cuda.is_available() else 'cuda'
     pe = pos_enc(args, le_size=args.le_size, rw_size=args.rw_size, n2v_size=args.n2v_size, norm=args.pe_norm, use_cached=args.use_cached_pe, device=torch_device) 
@@ -52,7 +55,8 @@ if __name__ == '__main__':
     pe = torch.tensor(pe, dtype=torch.float32)
 
     print(' Reading graph from data_adj...', end='')    
-    A = pd.read_parquet(args.adj_path).T.to_numpy()
+    #A = pd.read_parquet(args.adj_path).T.to_numpy()
+    A = read_file_T(args.adj_path)
     adj = A if A.shape[0]==2 else np.where(A)
     edge_index = torch.tensor(adj,dtype=torch.long)
     edge_index, _ = add_self_loops(edge_index)
@@ -60,10 +64,11 @@ if __name__ == '__main__':
     print(' Done.\n')
 
     print(' Reading timeseries from data_path...', end='')
-    x = pd.read_parquet(args.data_path).to_numpy()
+    #x = pd.read_parquet(args.data_path).to_numpy()
+    x = read_file(args.data_path)
     time.sleep(0.2)
     print(' Done.\n')
-
+    
     n,T = x.shape
     
     # split training and test sets via torch geometric data loaders:

@@ -93,7 +93,7 @@ config_args = {
         'num_heads': (8, 'number of heads in transformer blocks.'),
         'trunk_res': (True, 'use residual connections in trunk net.'),
         'trunk_norm': (True, 'use layer norm in trunk net.'),
-        'pos_emb_var': (0., 'variance of transformer positional embedding at l=0 and l>0, respectively'),
+        'pos_emb_var': (0.1, 'variance of transformer positional embedding at l=0 and l>0, respectively'),
         'level_emb_var': (1., 'variance of transformer level embedding'),
         'func_pos_emb': (1, 'use functional positional embedding in Transformer'),
         'dual_pos_emb': (1, 'use dual positional embedding'),
@@ -166,13 +166,13 @@ def configure(args):
 
     # multiscale embedding weights
     if args.dual_pos_emb == 1:
-        args.pos_emb_var = [args.pos_emb_var, 1.]
+        args.pos_emb_var = [args.pos_emb_var, args.pos_emb_var]
         args.level_emb_var = [args.level_emb_var]
     elif args.dual_pos_emb == 2:
         args.pos_emb_var = [args.pos_emb_var, .5]
         args.level_emb_var = [args.level_emb_var]
     elif args.dual_pos_emb == 3:
-        args.pos_emb_var = [args.pos_emb_var, 0.]
+        args.pos_emb_var = [args.pos_emb_var, args.pos_emb_var]
         args.level_emb_var = [args.level_emb_var]
     elif args.dual_pos_emb == 4:
         args.pos_emb_var = [args.pos_emb_var, 1.]

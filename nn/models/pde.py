@@ -26,8 +26,8 @@ class burgers(eqx.Module):
 
     def __init__(self, args, module='pde', parent=None):
         super(burgers, self).__init__()
-        self.F = getattr(models, args.decoder)(args, module='pde')
-        self.v = getattr(models, args.decoder)(args, module='pde')
+        self.F = getattr(models, args.decoder)(args, module='pde', shared=args.shared_branch)
+        self.v = getattr(models, args.decoder)(args, module='pde', shared=args.shared_branch)
         self.x_dim = args.x_dim
         self.p_dim = args.p_basis
         self.lin_red = eqx.nn.Linear(self.x_dim,1,key=prng())
@@ -50,7 +50,8 @@ class burgers(eqx.Module):
             b_dim = p_dim * x_dim
             b = z[:b_dim] 
             z = z if self.nonlinear else z[b_dim:]            
-            txzugl = jnp.concatenate([tx, z, u, grad_x, lap_x], axis=-1)
+            #txzugl = jnp.concatenate([tx, z, u, grad_x, lap_x], axis=-1)
+            txzugl = jnp.concatenate([tx, z], axis=-1)
             trunk_F = self.F.trunk(txzugl, key)
             trunk_v = self.v.trunk(txzugl, key)
             if self.nonlinear:
