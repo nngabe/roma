@@ -32,32 +32,55 @@ elif batch == 'test':
     OPTS.append(opts)
     opts = {'path': [1718042027]} # 38k, non-stationary 
     OPTS.append(opts)
-    opts = {'path': [1715275273]} # 29k, Burgers 
+    opts = {'path': [1725828780]} # 2M Burgers 
+    OPTS.append(opts)
+    opts = {'path': [1722285916]} # 3M Kuramoto
     OPTS.append(opts)
 
-elif batch.isnumeric() and ablation=='ED':
-    opt_ = {'path': [batch]}
-    name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
-    OUT_FILE = f'args/ab_{name}.txt'
+elif batch.isnumeric() and ablation=='BD':
+    opt_ = {'path': [batch], 'pde': ['burgers'], 'x_var': [1e-3], 't_var': [1e-3], 'lr': [5e-6], 'steps': [120000]}
+    name = '_'.join([[i[0]+str(i[1][0])[-4:] for i in opt_.items()][0]])
+    OUT_FILE = f'args/ed_{name}.txt'
 
     # ROMA
     opts = opt_ 
     OPTS.append(opts)
  
     # DON-PI
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [1.], 'w_gpde': [1.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0]} 
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [1.], 'w_gpde': [1.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0], 'dec_width': [1482]} 
     OPTS.append(opts)
     
     # DON-MP-PI
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [1.], 'w_gpde': [1.], 'nonlinear': [0], 
-                   'pe_embed_dim': [0], 'manifold': ['Euclidean'], 
-                    'func_pos_emb': [0], 'dual_pos_emb': [5]}
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [1.], 'w_gpde': [1.], 'nonlinear': [0], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 
+                   'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1072]}
     OPTS.append(opts)
     
     # NOMAD-MP-PI
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'nonlinear': [1],
-                   'pe_embed_dim': [0], 'manifold': ['Euclidean'], 
-                    'func_pos_emb': [0], 'dual_pos_emb': [5]}
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [1.], 'w_gpde': [1.], 'nonlinear': [1], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 
+                   'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1050]}
+    OPTS.append(opts) 
+ 
+elif batch.isnumeric() and ablation=='KM':
+    opt_ = {'path': [batch]}
+    name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
+    OUT_FILE = f'args/ed_{name}.txt'
+
+    # ROMA
+    opts = opt_ 
+    OPTS.append(opts)
+ 
+    # DON-PI
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [1.], 'w_gpde': [1.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0], 'dec_width': [1524]}
+    OPTS.append(opts)
+    
+    # DON-MP-PI
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [1.], 'w_gpde': [1.], 'nonlinear': [0], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 
+                   'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1080]}
+    OPTS.append(opts)
+    
+    # NOMAD-MP-PI
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [1.], 'w_gpde': [1.], 'nonlinear': [1], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 
+                   'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1054]}
     OPTS.append(opts) 
  
 elif batch.isnumeric() and ablation == 'PE':
@@ -115,7 +138,7 @@ elif batch.isnumeric() and ablation == 'HN':
     OPTS.append(opts) 
  
 elif batch.isnumeric():
-    opt_ = {'path': [batch], 'pe_dim': [128]} 
+    opt_ = {'path': [batch]} 
     name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
     OUT_FILE = f'args/base_{name}.txt'
    
@@ -130,13 +153,13 @@ elif batch.isnumeric():
     # DON-MP
     opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [1], 'nonlinear': [0], 
                    'branch_net': ['Transformer'], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'edge_conv': [1],
-                    'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1280]}
+                    'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1344]}
     OPTS.append(opts)
     
     # NOMAD-MP
     opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [1], 'nonlinear': [1],
                    'branch_net': ['Transformer'], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'edge_conv': [1], 
-                    'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1280]}
+                    'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1344]}
     OPTS.append(opts) 
 
 

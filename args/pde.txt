@@ -1,2 +1,1 @@
---path 1725828780 --pde burgers --w_pde 1e+6 --w_gpde 1e+12 --lr 1e-5 --t_var 1e-3 --x_var 1e-3 --steps 200000
---path 1725651363 --pde burgers --w_pde 1e+6 --w_gpde 1e+12 --lr 1e-5 --t_var 1e-3 --x_var 1e-3 --steps 200000
+--
