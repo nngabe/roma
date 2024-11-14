@@ -1,28 +1,66 @@
-# ROMA: Renormalized Operators with Multiscale Attention
-
-This repository contains an implementation of a multiscale operator learning framework for modelling and forecasting complex social systems. The framework learns multiscale dynamics and forecasts the evolution of a complex system given an initial adjacency matrix $A^{(0)}$ and history of the system. See figure below for illustration and full slides for details. [[slides](https://www.dropbox.com/scl/fi/2py8doe6gaqjwv9g6pcuw/Multiscale_operator_learning_for_social_dynamics.pdf?rlkey=1ljnspm5zjjvnc9mn66qfcvm6&dl=0)]
-
-A brief overview of important modules in this repository are:
-
-**train.py**
-* Data loading, LR scheduling, graph sampling, and logging of training data.
-
-**nn/models/renonet.py** 
-* Contains a module of the framework shown below, as well as vmapped and serial loss functions for optimizing the loss shown below.
-
-**nn/models/models.py** 
-- Modules for the encoder and renormalization networks (GCN, HGCN) and decoder networks (MLP, Transformer, DeepOnet).
-
-**lib/graph_utils.py**
-- Utilities for sampling, padding, and otherwise manipulating graphs.
-
-**lib/positional_encoding.py**
-- Functions for computing positional encoding (node2vec, random walk PE, and laplacian eigenvector PE).
-
-**nn/manifolds/**
-- Manifold definitions for hyperbolic layers. Ported from the original pytorch code ([HGCN](https://github.com/HazyResearch/hgcn)) to JAX.
-- Includes Euclidean, Poincaré, and Hyperboloid manifolds.
-
-<img width="903" alt="renonet" src="https://github.com/nngabe/renonet/assets/50005216/012602fe-19f1-4ac4-a540-04fde74a3b40">
+# Renormalized Operators with Multiscale Attention (ROMA)
 
 
+![master_figure-2](figures/ROMA_simple.pdf)
+
+This repository contains code and data accompanying the manuscript titled [Connecting the Geometry and Dynamics of Many-Body Complex Systems with Neural Operators](https://arxiv.org/abs/xxxx.yyyyy)
+
+## Abstract
+
+The relationship between scale transformations and dynamics via renormalization group theory is a cornerstone of modern physical theories, from fluid mechanics to elementary particle physics. Integrating renormalization group methods into neural operators for many-body complex systems could provide a foundational inductive bias for learning their effective dynamics, while also uncovering multiscale organization in an integrated fashion.
+We introduce a scalable AI framework, ROMA (Renormalized Operators with Multiscale Attention), for learning multiscale evolution operators of many-body complex systems. In particular, we develop a renormalization procedure based on neural analagous of the geometric and laplacian renormalization groups, which can be co-learned with neural operators. An attention mechanism is used to model multiscale interactions that couple the renormalization and dynamics operators, as well as mirror the multiscale nature of complex systems.  We apply this framework in challenging conditions: large systems of more than 1M nodes, long-range interactions, and noisy input-output data for two contrasting examples: Kuramoto oscillators and burgers-like social dynamics. We show that the ROMA framework improves scalability and generalization compared to state-of-the-art operator learning techniques for large-scale systems, while simultaneously uncovering hierarchical and multiscale structure of complex systems in an explainable fashion.
+
+
+## Installation
+
+Dependencies can be installed with pip using the following commands:
+
+```
+pip3 install -U pip
+pip3 install --upgrade jax jaxlib
+pip3 install --upgrade -r requirements.txt
+```
+
+Then install the `roma` package by running the following command:
+
+```
+git clone https://github.com/nngabe/roma.git
+cd roma
+pip install -e .
+```
+
+
+## Datasets
+
+### KM-38k 
+
+Instructions for downloading the dataset can be found [here](./examples/README.md).
+
+### KM-314k 
+
+Instructions for downloading the dataset can be found [here](./examples/README.md).
+
+### KM-3M 
+
+Instructions for downloading the dataset can be found [here](./examples/README.md).
+
+### BD-2M
+
+Instructions for downloading the dataset can be found [here](./examples/README.md).
+
+## Experiments
+
+### Scaling & Noise
+
+### Effective Dynamics
+
+### Positional Embedding
+
+
+## Citation
+    @article{gabriel2024connecting,
+      title={Connecting the Geometry and Dynamics of Many-Body Complex Systems with Neural Operators},
+      author={Gabriel, Nicholas A and Johnson, Neil F and Karniadakis, George Em},
+      journal={arXiv preprint arXiv:xxxx.yyyyy},
+      year={2024}
+    }
