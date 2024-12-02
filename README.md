@@ -1,6 +1,6 @@
 # Renormalized Operators with Multiscale Attention (ROMA)
 
-<img src="https://github.com/nngabe/figures/ROMA_simple.pdf" width="48">
+<img src="figures/ROMA_simple.pdf" width="48">
 
 ![master_figure-2|100](figures/ROMA_simple.png)
 
