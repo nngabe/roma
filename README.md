@@ -1,7 +1,5 @@
 # Renormalized Operators with Multiscale Attention (ROMA)
 
-<img src="figures/ROMA_simple.pdf" width="48">
-
 ![master_figure-2|100](figures/ROMA_simple.png)
 
 This repository contains code and data accompanying the manuscript titled [Connecting the Geometry and Dynamics of Many-Body Complex Systems with Neural Operators](https://arxiv.org/abs/xxxx.yyyyy)
