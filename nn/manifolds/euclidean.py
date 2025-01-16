@@ -2,6 +2,7 @@
 
 from manifolds.base import Manifold
 import jax
+import jax.numpy as jnp
 
 prng_key = jax.random.PRNGKey(0)
 

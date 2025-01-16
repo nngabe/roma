@@ -9,6 +9,9 @@ opt2 = int(sys.argv[4]) if len(sys.argv)>4 else 1
 print(batch)
 OPTS = []
 
+
+dim_size = {'1718042027': 512, '1722538024': 256, '1725828780': 512, '1722285916': 512}
+
 if batch == '':
     OUT_FILE = 'args/base.txt'
     opts = {'manifold': ['Poincare']} 
@@ -22,23 +25,45 @@ if batch == '':
 
 elif batch == 'test':
     OUT_FILE = 'args/test.txt'
-    opts = {'path': [1718041958], 'epochs': [200000]} # 4k
+    opts = {'path': [1718042027]} # 38k 
     OPTS.append(opts)
-    opts = {'path': [1718042027], 'epochs': [200000]} # 38k 
-    OPTS.append(opts)
-    opts = {'path': [1716237798], 'epochs': [200000]} # 1M 
-    OPTS.append(opts)
-    opts = {'path': [11716416941], 'eta_var': [0.01]} # 38k, 10% noise 
-    OPTS.append(opts)
-    opts = {'path': [1718042027]} # 38k, non-stationary 
+    opts = {'path': [1722538024]} # 314k 
     OPTS.append(opts)
     opts = {'path': [1725828780]} # 2M Burgers 
     OPTS.append(opts)
     opts = {'path': [1722285916]} # 3M Kuramoto
     OPTS.append(opts)
 
+elif batch.isnumeric() and not ablation:
+    opt_ = {'path': [batch], 'pe_dim': [dim_size[batch]]}
+    name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
+    OUT_FILE = f'args/base_{name}.txt'
+   
+    # ROMA
+    opts = opt_ 
+    OPTS.append(opts)
+ 
+    # DON
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0], 'dec_width': [1872]} 
+    OPTS.append(opts)
+    
+    # DON-MP
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [1], 'nonlinear': [0], 
+                   'branch_net': ['Transformer'], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'edge_conv': [1],
+                    'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1326]}
+    OPTS.append(opts)
+    
+    # NOMAD-MP
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [1], 'nonlinear': [1],
+                   'branch_net': ['Transformer'], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'edge_conv': [1], 
+                    'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1292]}
+    OPTS.append(opts) 
+
+
+
+
 elif batch.isnumeric() and ablation=='BD':
-    opt_ = {'path': [batch], 'pde': ['burgers'], 'x_var': [1e-3], 't_var': [1e-3], 'lr': [5e-6], 'steps': [120000]}
+    opt_ = {'path': [batch], 'pde': ['burgers'], 'x_var': [1e-3], 't_var': [1e-3], 'lr': [5e-6], 'steps': [80000]}
     name = '_'.join([[i[0]+str(i[1][0])[-4:] for i in opt_.items()][0]])
     OUT_FILE = f'args/ed_{name}.txt'
 
@@ -90,6 +115,30 @@ elif batch.isnumeric() and ablation == 'PE':
     opts = opt_ | {'pos_emb_var': [0., .2, .4, .6, .8, 1.]}
     OPTS.append(opts)
 
+
+elif batch.isnumeric() and ablation == 'HN':
+    opt_ = {'path': [batch], 'eta_var': [0.01]}
+    name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
+    OUT_FILE = f'args/hn_{name}.txt'
+
+    # ROMA
+    opts = opt_ 
+    OPTS.append(opts)
+ 
+    # DON
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0]} 
+    OPTS.append(opts)
+    
+    # DON-MP
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'nonlinear': [0], 
+                  'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'func_pos_emb': [0], 'dual_pos_emb': [5]}
+    OPTS.append(opts)
+    
+    # NOMAD-MP
+    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'nonlinear': [1],
+                   'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'func_pos_emb': [0], 'dual_pos_emb': [5]}
+    OPTS.append(opts) 
+ 
 elif batch.isnumeric() and ablation == 'UQ':
     opt_ = {'path': [batch]}
     OUT_FILE = f'args/uq_{opt_["path"][0]}.txt'
@@ -114,54 +163,6 @@ elif batch.isnumeric() and ablation == 'UQ':
                    'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'func_pos_emb': [0], 'dual_pos_emb': [5]}
     OPTS.append(opts) 
  
-elif batch.isnumeric() and ablation == 'HN':
-    opt_ = {'path': [batch], 'eta_var': [0.01]}
-    name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
-    OUT_FILE = f'args/hn_{name}.txt'
-
-    # ROMA
-    opts = opt_ 
-    OPTS.append(opts)
- 
-    # DON
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0]} 
-    OPTS.append(opts)
-    
-    # DON-MP
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'nonlinear': [0], 
-                  'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'func_pos_emb': [0], 'dual_pos_emb': [5]}
-    OPTS.append(opts)
-    
-    # NOMAD-MP
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'nonlinear': [1],
-                   'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'func_pos_emb': [0], 'dual_pos_emb': [5]}
-    OPTS.append(opts) 
- 
-elif batch.isnumeric():
-    opt_ = {'path': [batch]} 
-    name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
-    OUT_FILE = f'args/base_{name}.txt'
-   
-    # ROMA
-    opts = opt_ 
-    OPTS.append(opts)
- 
-    # DON
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [0], 'nonlinear': [0], 'branch_net': ['Res'], 'pe_embed_dim': [0], 'dec_width': [1536]} 
-    OPTS.append(opts)
-    
-    # DON-MP
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [1], 'nonlinear': [0], 
-                   'branch_net': ['Transformer'], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'edge_conv': [1],
-                    'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1344]}
-    OPTS.append(opts)
-    
-    # NOMAD-MP
-    opts = opt_ | {'pool_steps': [0], 'w_pde': [0.], 'w_gpde': [0.], 'enc_depth': [1], 'nonlinear': [1],
-                   'branch_net': ['Transformer'], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 'edge_conv': [1], 
-                    'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1344]}
-    OPTS.append(opts) 
-
 
 elif batch == 'ablations_extra':
     OUT_FILE = 'args/ablations.txt'
