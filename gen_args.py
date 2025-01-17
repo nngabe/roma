@@ -87,6 +87,7 @@ elif batch.isnumeric() and ablation=='BD':
  
 elif batch.isnumeric() and ablation=='KM':
     opt_ = {'path': [batch]}
+    #opt_ = {'path': [batch], 'pde': ['burgers'], 'x_var': [1e-3], 't_var': [1e-3], 'lr': [5e-6], 'steps': [80000]}
     name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
     OUT_FILE = f'args/ed_{name}.txt'
 
@@ -107,8 +108,45 @@ elif batch.isnumeric() and ablation=='KM':
     opts = opt_ | {'pool_steps': [0], 'w_pde': [1.], 'w_gpde': [1.], 'nonlinear': [1], 'pe_embed_dim': [0], 'manifold': ['Euclidean'], 
                    'func_pos_emb': [0], 'dual_pos_emb': [5], 'dec_width': [1054]}
     OPTS.append(opts) 
- 
+
 elif batch.isnumeric() and ablation == 'PE':
+    opt_ = {'path': [batch]}
+    name = '_'.join([i[0]+str(i[1][0])[-4:] for i in opt_.items()])
+    OUT_FILE = f'args/pe_{name}.txt'
+
+    # index/ViT
+    opts = opt_ | {'level_emb_var': [0.], 'pos_emb_var': [1.], 'func_pos_emb': [0]}
+    OPTS.append(opts)
+    
+    # multiscale only 
+    opts = opt_ | {'level_emb_var': [0.], 'pos_emb_var': [1.], 'func_pos_emb': [0]}
+    OPTS.append(opts)
+    
+    # context only
+    opts = opt_ | {'level_emb_var': [0.], 'pos_emb_var': [0.], 'func_pos_emb': [1]}
+    OPTS.append(opts)
+
+    # no scale
+    opts = opt_ | {'level_emb_var': [0.], 'pos_emb_var': [1.], 'func_pos_emb': [1]}
+    OPTS.append(opts)
+    
+    # no index 
+    opts = opt_ | {'level_emb_var': [1.], 'pos_emb_var': [0.], 'func_pos_emb': [1]}
+    OPTS.append(opts)
+ 
+    # partial index 
+    opts = opt_ | {'level_emb_var': [1.], 'pos_emb_var': [.25], 'func_pos_emb': [1]}
+    OPTS.append(opts)
+    
+    # partial index 
+    opts = opt_ | {'level_emb_var': [1.], 'pos_emb_var': [.5], 'func_pos_emb': [1]}
+    OPTS.append(opts)
+    
+    # full 
+    opts = opt_ | {'level_emb_var': [1.], 'pos_emb_var': [1.], 'func_pos_emb': [1]}
+    OPTS.append(opts)
+
+elif batch.isnumeric() and ablation == 'PEV':
     opt_ = {'path': [batch], 'func_pos_emb': [opt1], 'dual_pos_emb': [opt2]}
     OUT_FILE = f'args/pe_{opt_["path"][0]}_dual{opt_["func_pos_emb"][0]}.{opt_["dual_pos_emb"][0]}.txt'
 
