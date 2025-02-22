@@ -38,11 +38,13 @@ Instructions for downloading all datasets can be found here (upon preprint publi
 
 ## Experiments
 
-### Scaling & Noise
+### Data Scaling & Noise
 
 ### Effective Dynamics
 
 ### Positional Embedding
+
+### ROMA Scaling
 
 
 ## Citation
