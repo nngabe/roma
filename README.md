@@ -34,7 +34,7 @@ bash set_env.sh
 
 ## Datasets
 
-Instructions for downloading all datasets can be found here (upon preprint publication).
+All datasets with precomputed positional encodings can be found [here](https://zenodo.org/records/14911118).
 
 ## Experiments
 
