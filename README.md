@@ -2,7 +2,7 @@
 
 <img src="https://github.com/nngabe/roma/blob/master/figures/ROMA_simple.png" width="512">
 
-This repository contains code and data accompanying the manuscript titled [Connecting the Geometry and Dynamics of Many-Body Complex Systems with Neural Operators](https://arxiv.org/abs/xxxx.yyyyy)
+This repository contains code and data accompanying the manuscript titled [Connecting the geometry and dynamics of many-body complex systems with message passing neural operators](https://arxiv.org/abs/xxxx.yyyyy)
 
 ## Abstract
 
@@ -48,9 +48,9 @@ Instructions for downloading all datasets can be found here (upon preprint publi
 
 
 ## Citation
-    @article{gabriel2024connecting,
-      title={Connecting the Geometry and Dynamics of Many-Body Complex Systems with Neural Operators},
+    @article{gabriel2025connecting,
+      title={Connecting the geometry and dynamics of many-body complex systems with message passing neural operators},
       author={Gabriel, Nicholas A and Johnson, Neil F and Karniadakis, George Em},
       journal={arXiv preprint arXiv:xxxx.yyyyy},
-      year={2024}
+      year={2025}
     }
