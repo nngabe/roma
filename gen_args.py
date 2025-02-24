@@ -119,7 +119,7 @@ elif batch.isnumeric() and ablation == 'PE':
     OPTS.append(opts)
     
     # multiscale only 
-    opts = opt_ | {'level_emb_var': [0.], 'pos_emb_var': [1.], 'func_pos_emb': [0]}
+    opts = opt_ | {'level_emb_var': [1.], 'pos_emb_var': [1.], 'func_pos_emb': [0]}
     OPTS.append(opts)
     
     # context only

@@ -1,5 +1,7 @@
+--path 1722285916 --level_emb_var 1.0 --pos_emb_var 1.0 --func_pos_emb 1 --steps 60000
+--path 1722285916 --level_emb_var 1.0 --pos_emb_var 0.0 --func_pos_emb 1 --steps 60000
 --path 1722285916 --level_emb_var 0.0 --pos_emb_var 1.0 --func_pos_emb 0 
---path 1722285916 --level_emb_var 0.0 --pos_emb_var 1.0 --func_pos_emb 0 
+--path 1722285916 --level_emb_var 1.0 --pos_emb_var 1.0 --func_pos_emb 0 
 --path 1722285916 --level_emb_var 0.0 --pos_emb_var 0.0 --func_pos_emb 1 
 --path 1722285916 --level_emb_var 0.0 --pos_emb_var 1.0 --func_pos_emb 1 
 --path 1722285916 --level_emb_var 1.0 --pos_emb_var 0.0 --func_pos_emb 1 

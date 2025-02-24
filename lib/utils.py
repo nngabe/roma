@@ -89,7 +89,7 @@ def read_model(args):
 
 def round_to_nearest_thousands(number):
     suffix = ['','k','M','B','T','P']
-    for i in range(5):
+    for i in range(4):
         if 1000**i > number:
             break
     sig = i-1

@@ -123,7 +123,10 @@ def subgraph(
 
 
 def dense_to_coo(A: jnp.ndarray) -> jnp.ndarray:
+
     adj = jnp.mask_indices(A.shape[0], lambda x,k: x)
+    #adj = jnp.indices((size,size))
+    #adj = jnp.array([adj[0].flatten(),adj[1].flatten()])
     adj = jnp.array([adj[0],adj[1]])
     w = A[adj[0],adj[1]]
     w = pad_adj(w.reshape(-1,1).T, fill_value=0)

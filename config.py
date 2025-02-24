@@ -186,11 +186,11 @@ def configure(args):
     if args.w_pool == 0:
         args.w_pool = [1., 1e-3, 1e+2] # = w[H_S, H_A, LP]
     elif args.w_pool == 1:
-        args.w_pool = [1e-1, 1e-12, 1e+1]
+        args.w_pool = [1e-8, 1e-8, 1e-20]
     elif args.w_pool == 2:
-        args.w_pool = [1., 1e-2, 1/10]
+        args.w_pool = [1e-5, 1e-6, 1e-20]
     elif args.w_pool == 3:
-        args.w_pool = [1., 1e-1, 0.]
+        args.w_pool = [1e-5, 1e-5, 1e-5]
 
     # read cached pe if loading from path
     #if args.log_path != None: args.use_cached = True

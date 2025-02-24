@@ -1,7 +1,9 @@
 #!/bin/bash
 
+#bash batch.sh args/pe_path5916.txt
+bash batch.sh args/pe_path5910.txt
 #bash batch.sh args/ed_path5916.txt
-bash batch.sh args/ed_path5910.txt
+#bash batch.sh args/ed_path5910.txt
 #bash batch.sh args/ed_path8780.txt
 #bash batch.sh args/pde.txt
 #bash batch.sh args/base_path5916_pe_dim512.txt
