@@ -44,26 +44,26 @@ Each set of experiments can be run with the following commands:
 
 ### Data Scaling & Noise
 
-'''
+```
 bash batch.sh args/SN_KM38k.txt
 bash batch.sh args/SN_KM314k.txt
 bash batch.sh args/SN_KM3M.txt
 bash batch.sh args/SN_KM3M_HN.txt
-'''
+```
 
 ### Effective Dynamics
 
-'''
+```
 bash batch.sh args/ED_KM3M.txt
 bash batch.sh args/ED_BD3M.txt
-'''
+```
 
 ### ROMA Scaling
 
-'''
+```
 bash batch.sh args/BLH_KM3M.txt
 bash batch.sh args/BLH_BD3M.txt
-'''
+```
 
 
 ## Citation
