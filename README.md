@@ -42,6 +42,7 @@ Please place files in a `data/` directory next to `roma/` to use the default pat
 cd roma
 mkdir ../data/
 cp path_to_dataset_download/* ../data
+```
 
 ## Experiments
 
