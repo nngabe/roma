@@ -1,0 +1,3 @@
+--path 1736885910 --pde burgers --x_var 0.0001 --t_var 0.0001 --lr 1e-05 --steps 100000 --w_pool 1 --manifold Euclidean --pe_embed_dim 0 --dec_width 1024 --pos_emb_var 0.
+--path 1736885910 --pde burgers --x_var 0.0001 --t_var 0.0001 --lr 1e-05 --steps 100000 --w_pool 1 --manifold Euclidean --pe_embed_dim 0 --dec_width 2048 --dec_depth 7 --num_heads 8 --level_emb_var 1.0 --pos_emb_var 1.0 --func_pos_emb 0
+--path 1736885910 --pde burgers --x_var 0.0001 --t_var 0.0001 --lr 1e-05 --steps 100000 --w_pool 1 --manifold Euclidean --pe_embed_dim 0 --dec_width 2560 --dec_depth 7 --num_heads 8 --level_emb_var 1.0 --pos_emb_var 1.0 --func_pos_emb 0

@@ -1,6 +1,0 @@
---path 1722285916 --func_pos_emb 0 --dual_pos_emb 1 --pos_emb_var 0.0 
---path 1722285916 --func_pos_emb 0 --dual_pos_emb 1 --pos_emb_var 0.2 
---path 1722285916 --func_pos_emb 0 --dual_pos_emb 1 --pos_emb_var 0.05
---path 1722285916 --func_pos_emb 0 --dual_pos_emb 1 --pos_emb_var 0.1
---path 1722285916 --func_pos_emb 0 --dual_pos_emb 1 --pos_emb_var 0.4 
---path 1722285916 --func_pos_emb 0 --dual_pos_emb 1 --pos_emb_var 1.0 

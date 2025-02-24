@@ -1,3 +1,0 @@
---path 1715275273 --pool_steps 0 
---path 1715275273 --w_pde 0.0 --w_gpde 0.0 
---path 1715275273 --branch_net Res --dec_width 1536 

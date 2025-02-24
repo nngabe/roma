@@ -1,9 +1,0 @@
---path 1736885910 --pde burgers --x_var 0.0001 --t_var 0.0001 --lr 1e-05 --steps 80000 --w_pde 1.0 --w_gpde 1.0 --nonlinear 0 --pe_embed_dim 0 --manifold Euclidean --dual_pos_emb 1 --dec_width 1024 --w_pool 1 --level_emb_var 1.0 --pos_emb_var 1.0 --func_pos_emb 1
---path 1736885910 --level_emb_var 0.0 --pos_emb_var 1.0 --func_pos_emb 0 
---path 1736885910 --level_emb_var 0.0 --pos_emb_var 1.0 --func_pos_emb 0 
---path 1736885910 --level_emb_var 0.0 --pos_emb_var 0.0 --func_pos_emb 1 
---path 1736885910 --level_emb_var 0.0 --pos_emb_var 1.0 --func_pos_emb 1 
---path 1736885910 --level_emb_var 1.0 --pos_emb_var 0.0 --func_pos_emb 1 
---path 1736885910 --level_emb_var 1.0 --pos_emb_var 0.25 --func_pos_emb 1 
---path 1736885910 --level_emb_var 1.0 --pos_emb_var 0.5 --func_pos_emb 1 
---path 1736885910 --level_emb_var 1.0 --pos_emb_var 1.0 --func_pos_emb 1 

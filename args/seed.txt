@@ -1,4 +1,0 @@
---path 1715101625 --epochs 0 --torch_seed 1 
---path 1715101625 --epochs 0 --torch_seed 2 
---path 1715101625 --epochs 0 --torch_seed 3 
---path 1715101625 --epochs 0 --torch_seed 4 

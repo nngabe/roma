@@ -1,4 +1,0 @@
---path 1718042027 --eta_var 0.01 
---path 1718042027 --eta_var 0.01 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 0 --nonlinear 0 --branch_net Res --pe_embed_dim 0 
---path 1718042027 --eta_var 0.01 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 1 --nonlinear 0 --branch_net Res --pe_embed_dim 0 --manifold Euclidean --edge_conv 1 
---path 1718042027 --eta_var 0.01 --pool_steps 0 --w_pde 0.0 --w_gpde 0.0 --enc_depth 1 --nonlinear 1 --branch_net Res --pe_embed_dim 0 --manifold Euclidean --edge_conv 1 

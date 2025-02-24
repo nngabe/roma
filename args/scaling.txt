@@ -1,5 +1,0 @@
---manifold PoincareBall --path t1708806913 
---level_emb_var 1 --path t1708806913 
---decoder ResNet --path t1708806913 
---manifold Euclidean --path t1708806913 
---w_pde 0.0 --w_gpde 0.0 --path t1708806913 

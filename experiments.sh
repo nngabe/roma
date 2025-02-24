@@ -1,7 +1,9 @@
 #!/bin/bash
 
+bash batch.sh (($1))
+
 #bash batch.sh args/pe_path5916.txt
-bash batch.sh args/pe_path5910.txt
+#bash batch.sh args/pe_path5910.txt
 #bash batch.sh args/ed_path5916.txt
 #bash batch.sh args/ed_path5910.txt
 #bash batch.sh args/ed_path8780.txt

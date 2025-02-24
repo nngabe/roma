@@ -1,4 +1,0 @@
---path 1725828780 --pde burgers --x_var 0.001 --t_var 0.001 --lr 5e-06 --steps 120000 
---path 1725828780 --pde burgers --x_var 0.001 --t_var 0.001 --lr 5e-06 --steps 120000 --pool_steps 0 --w_pde 1.0 --w_gpde 1.0 --enc_depth 0 --nonlinear 0 --branch_net Res --pe_embed_dim 0 --dec_width 1482 
---path 1725828780 --pde burgers --x_var 0.001 --t_var 0.001 --lr 5e-06 --steps 120000 --pool_steps 0 --w_pde 1.0 --w_gpde 1.0 --nonlinear 0 --pe_embed_dim 0 --manifold Euclidean --func_pos_emb 0 --dual_pos_emb 5 --dec_width 1072 
---path 1725828780 --pde burgers --x_var 0.001 --t_var 0.001 --lr 5e-06 --steps 120000 --pool_steps 0 --w_pde 1.0 --w_gpde 1.0 --nonlinear 1 --pe_embed_dim 0 --manifold Euclidean --func_pos_emb 0 --dual_pos_emb 5 --dec_width 1050 

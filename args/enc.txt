@@ -1,5 +1,0 @@
---c 1. --epochs 20000 --optim nadamw --weight_decay 1e-3
---c 1. --epochs 20000 --optim nadamw --weight_decay 1e-4
---c 1. --epochs 20000 --optim adamw --weight_decay 1e-4
---c 1. --epochs 60000 --optim adamw --weight_decay 1e-3
---c 0.25 --epochs 60000 --optim adamw --weight_decay 1e-3
