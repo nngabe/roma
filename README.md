@@ -36,6 +36,8 @@ bash set_env.sh
 
 All datasets with precomputed positional encodings can be found [here](https://zenodo.org/records/14911118).
 
+Please place files in a `data/` directory next to `roma/` to use the default paths specified in `train.py`.
+
 ## Experiments
 
 Each set of experiments can be run with the following commands:
