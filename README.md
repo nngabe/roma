@@ -76,6 +76,6 @@ bash batch.sh args/BLH_BD3M.txt
     @article{gabriel2025connecting,
       title={Connecting the geometry and dynamics of many-body complex systems with message passing neural operators},
       author={Gabriel, Nicholas A and Johnson, Neil F and Karniadakis, George Em},
-      journal={arXiv preprint arXiv:xxxx.yyyyy},
+      journal={arXiv preprint arXiv:2502.15913},
       year={2025}
     }
