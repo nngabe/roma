@@ -2,7 +2,7 @@
 
 <img src="https://github.com/nngabe/roma/blob/master/figures/ROMA_simple.png" width="512">
 
-This repository contains code and data accompanying the manuscript titled [Connecting the geometry and dynamics of many-body complex systems with message passing neural operators](https://arxiv.org/abs/xxxx.yyyyy)
+This repository contains code and data accompanying the manuscript titled [Connecting the geometry and dynamics of many-body complex systems with message passing neural operators](https://arxiv.org/abs/2502.15913)
 
 ## Abstract
 
